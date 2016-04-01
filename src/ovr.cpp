@@ -175,6 +175,106 @@ ovrError:
 
 	void OVR::postReset(const ovrTexture& _texture)
 	{
+		// TODO: refactor this
+		// #if BGFX_CONFIG_USE_OVR
+		// 			if (m_flags & (BGFX_RESET_HMD|BGFX_RESET_HMD_DEBUG) )
+		// 			{
+		// 				ovrD3D11Config config;
+		// 				config.D3D11.Header.API = ovrRenderAPI_D3D11;
+		// #	if OVR_VERSION > OVR_VERSION_043
+		// 				config.D3D11.Header.BackBufferSize.w = m_scd.BufferDesc.Width;
+		// 				config.D3D11.Header.BackBufferSize.h = m_scd.BufferDesc.Height;
+		// 				config.D3D11.pBackBufferUAV = NULL;
+		// #	else
+		// 				config.D3D11.Header.RTSize.w = m_scd.BufferDesc.Width;
+		// 				config.D3D11.Header.RTSize.h = m_scd.BufferDesc.Height;
+		// #	endif // OVR_VERSION > OVR_VERSION_042
+		// 				config.D3D11.Header.Multisample = 0;
+		// 				config.D3D11.pDevice        = m_device;
+		// 				config.D3D11.pDeviceContext = m_deviceCtx;
+		// 				config.D3D11.pBackBufferRT  = m_backBufferColor;
+		// 				config.D3D11.pSwapChain     = m_swapChain;
+		// 				if (m_ovr.postReset(g_platformData.nwh, &config.Config, !!(m_flags & BGFX_RESET_HMD_DEBUG) ) )
+		// 				{
+		// 					uint32_t size = sizeof(uint32_t) + sizeof(TextureCreate);
+		// 					const Memory* mem = alloc(size);
+
+		// 					bx::StaticMemoryBlockWriter writer(mem->data, mem->size);
+		// 					uint32_t magic = BGFX_CHUNK_MAGIC_TEX;
+		// 					bx::write(&writer, magic);
+
+		// 					TextureCreate tc;
+		// 					tc.m_flags   = BGFX_TEXTURE_RT|( ((m_flags & BGFX_RESET_MSAA_MASK) >> BGFX_RESET_MSAA_SHIFT) << BGFX_TEXTURE_RT_MSAA_SHIFT);
+		// 					tc.m_width   = m_ovr.m_rtSize.w;
+		// 					tc.m_height  = m_ovr.m_rtSize.h;
+		// 					tc.m_sides   = 0;
+		// 					tc.m_depth   = 0;
+		// 					tc.m_numMips = 1;
+		// 					tc.m_format  = uint8_t(bgfx::TextureFormat::BGRA8);
+		// 					tc.m_cubeMap = false;
+		// 					tc.m_mem     = NULL;
+		// 					bx::write(&writer, tc);
+		// 					m_ovrRT.create(mem, tc.m_flags, 0);
+
+		// 					release(mem);
+
+		// 					DX_CHECK(m_device->CreateRenderTargetView(m_ovrRT.m_ptr, NULL, &m_ovrRtv) );
+
+		// 					D3D11_TEXTURE2D_DESC dsd;
+		// 					dsd.Width      = m_ovr.m_rtSize.w;
+		// 					dsd.Height     = m_ovr.m_rtSize.h;
+		// 					dsd.MipLevels  = 1;
+		// 					dsd.ArraySize  = 1;
+		// 					dsd.Format     = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		// 					dsd.SampleDesc = m_scd.SampleDesc;
+		// 					dsd.Usage      = D3D11_USAGE_DEFAULT;
+		// 					dsd.BindFlags  = D3D11_BIND_DEPTH_STENCIL;
+		// 					dsd.CPUAccessFlags = 0;
+		// 					dsd.MiscFlags      = 0;
+
+		// 					ID3D11Texture2D* depthStencil;
+		// 					DX_CHECK(m_device->CreateTexture2D(&dsd, NULL, &depthStencil) );
+		// 					DX_CHECK(m_device->CreateDepthStencilView(depthStencil, NULL, &m_ovrDsv) );
+		// 					DX_RELEASE(depthStencil, 0);
+
+		// 					ovrD3D11Texture texture;
+		// 					texture.D3D11.Header.API         = ovrRenderAPI_D3D11;
+		// 					texture.D3D11.Header.TextureSize = m_ovr.m_rtSize;
+		// 					texture.D3D11.pTexture           = m_ovrRT.m_texture2d;
+		// 					texture.D3D11.pSRView            = m_ovrRT.m_srv;
+		// 					m_ovr.postReset(texture.Texture);
+
+		// 					bx::xchg(m_ovrRtv, m_backBufferColor);
+
+		// 					BX_CHECK(NULL == m_backBufferDepthStencil, "");
+		// 					bx::xchg(m_ovrDsv, m_backBufferDepthStencil);
+		// 				}
+		// 			}
+		// #endif // BGFX_CONFIG_USE_OVR
+
+		// TODO: also refactor this
+		// // If OVR doesn't create separate depth stencil view, create default one.
+		// if (NULL == m_backBufferDepthStencil)
+		// {
+		// 	D3D11_TEXTURE2D_DESC dsd;
+		// 	dsd.Width  = getBufferWidth();
+		// 	dsd.Height = getBufferHeight();
+		// 	dsd.MipLevels  = 1;
+		// 	dsd.ArraySize  = 1;
+		// 	dsd.Format     = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		// 	dsd.SampleDesc = m_scd.SampleDesc;
+		// 	dsd.Usage      = D3D11_USAGE_DEFAULT;
+		// 	dsd.BindFlags  = D3D11_BIND_DEPTH_STENCIL;
+		// 	dsd.CPUAccessFlags = 0;
+		// 	dsd.MiscFlags      = 0;
+
+		// 	ID3D11Texture2D* depthStencil;
+		// 	DX_CHECK(m_device->CreateTexture2D(&dsd, NULL, &depthStencil) );
+		// 	DX_CHECK(m_device->CreateDepthStencilView(depthStencil, NULL, &m_backBufferDepthStencil) );
+		// 	DX_RELEASE(depthStencil, 0);
+		// }
+
+
 		if (NULL != m_hmd)
 		{
 			m_texture[0] = _texture;
