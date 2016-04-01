@@ -4849,7 +4849,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 
 					unsigned int viewStereoMode = _render->m_viewFlags[view] & BGFX_VIEW_STEREO;
 					viewRestart = ( BGFX_VIEW_STEREO == viewStereoMode );
-					viewRestart &= hmdEnabled;
+					//viewRestart &= hmdEnabled; // allow stereo without hmd
 					if (viewRestart)
 					{
 						if (0 == restartState)

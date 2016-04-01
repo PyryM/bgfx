@@ -1771,7 +1771,7 @@ namespace bgfx
 		float m_colorPalette[BGFX_CONFIG_MAX_COLOR_PALETTE][4];
 		Rect m_rect[BGFX_CONFIG_MAX_VIEWS];
 		Rect m_scissor[BGFX_CONFIG_MAX_VIEWS];
-		Matrix4 m_view[BGFX_CONFIG_MAX_VIEWS];
+		Matrix4 m_view[2][BGFX_CONFIG_MAX_VIEWS];
 		Matrix4 m_proj[2][BGFX_CONFIG_MAX_VIEWS];
 		uint8_t m_viewFlags[BGFX_CONFIG_MAX_VIEWS];
 		uint8_t m_occlusion[BGFX_CONFIG_MAX_OCCUSION_QUERIES];
@@ -3508,31 +3508,41 @@ namespace bgfx
 			m_fb[_id] = _handle;
 		}
 
-		BGFX_API_FUNC(void setViewTransform(uint8_t _id, const void* _view, const void* _proj, uint8_t _flags, const void* _proj1) )
+		BGFX_API_FUNC(void setViewTransform(uint8_t _id, const void* _viewL, const void* _projL, uint8_t _flags, const void* _viewR, const void* _projR) )
 		{
 			m_viewFlags[_id] = _flags;
 
-			if (NULL != _view)
+			if (NULL != _viewL)
 			{
-				memcpy(m_view[_id].un.val, _view, sizeof(Matrix4) );
+				memcpy(m_view[0][_id].un.val, _viewL, sizeof(Matrix4) );
 			}
 			else
 			{
-				m_view[_id].setIdentity();
+				m_view[0][_id].setIdentity();
 			}
 
-			if (NULL != _proj)
+			if (NULL != _viewR)
 			{
-				memcpy(m_proj[0][_id].un.val, _proj, sizeof(Matrix4) );
+				memcpy(m_view[1][_id].un.val, _viewR, sizeof(Matrix4) );
+			}
+			else
+			{
+				memcpy(m_view[1][_id].un.val, m_view[0][_id].un.val, sizeof(Matrix4) );
+			}
+
+
+			if (NULL != _projL)
+			{
+				memcpy(m_proj[0][_id].un.val, _projL, sizeof(Matrix4) );
 			}
 			else
 			{
 				m_proj[0][_id].setIdentity();
 			}
 
-			if (NULL != _proj1)
+			if (NULL != _projR)
 			{
-				memcpy(m_proj[1][_id].un.val, _proj1, sizeof(Matrix4) );
+				memcpy(m_proj[1][_id].un.val, _projR, sizeof(Matrix4) );
 			}
 			else
 			{
@@ -3548,7 +3558,7 @@ namespace bgfx
 			setViewSeq(_id, false);
 			bgfx::FrameBufferHandle invalid = BGFX_INVALID_HANDLE;
 			setViewFrameBuffer(_id, invalid);
-			setViewTransform(_id, NULL, NULL, BGFX_VIEW_NONE, NULL);
+			setViewTransform(_id, NULL, NULL, BGFX_VIEW_NONE, NULL, NULL);
 		}
 
 		BGFX_API_FUNC(void setViewRemap(uint8_t _id, uint8_t _num, const void* _remap) )
@@ -4029,7 +4039,7 @@ namespace bgfx
 		float m_clearColor[BGFX_CONFIG_MAX_COLOR_PALETTE][4];
 		Rect m_rect[BGFX_CONFIG_MAX_VIEWS];
 		Rect m_scissor[BGFX_CONFIG_MAX_VIEWS];
-		Matrix4 m_view[BGFX_CONFIG_MAX_VIEWS];
+		Matrix4 m_view[2][BGFX_CONFIG_MAX_VIEWS];
 		Matrix4 m_proj[2][BGFX_CONFIG_MAX_VIEWS];
 		uint8_t m_viewFlags[BGFX_CONFIG_MAX_VIEWS];
 		uint16_t m_seq[BGFX_CONFIG_MAX_VIEWS];

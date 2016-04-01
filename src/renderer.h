@@ -25,47 +25,12 @@ namespace bgfx
 			m_invProjCached = UINT16_MAX;
 			m_invViewProjCached = UINT16_MAX;
 
-			m_view[0] = _render->m_view;
-			m_view[1] = m_viewTmp[1];
-
-			if (_hmdEnabled)
-			{
-				HMD& hmd = _render->m_hmd;
-
-				m_view[0] = m_viewTmp[0];
-				Matrix4 viewAdjust;
-				bx::mtxIdentity(viewAdjust.un.val);
-
-				for (uint32_t eye = 0; eye < 2; ++eye)
-				{
-					const HMD::Eye& hmdEye = hmd.eye[eye];
-					viewAdjust.un.val[12] = hmdEye.viewOffset[0];
-					viewAdjust.un.val[13] = hmdEye.viewOffset[1];
-					viewAdjust.un.val[14] = hmdEye.viewOffset[2];
-
-					for (uint32_t ii = 0; ii < BGFX_CONFIG_MAX_VIEWS; ++ii)
-					{
-						if (BGFX_VIEW_STEREO == (_render->m_viewFlags[ii] & BGFX_VIEW_STEREO) )
-						{
-							bx::float4x4_mul(&m_view[eye][ii].un.f4x4
-								, &_render->m_view[ii].un.f4x4
-								, &viewAdjust.un.f4x4
-								);
-						}
-						else
-						{
-							memcpy(&m_view[0][ii].un.f4x4, &_render->m_view[ii].un.f4x4, sizeof(Matrix4) );
-						}
-					}
-				}
-			}
-
 			for (uint32_t ii = 0; ii < BGFX_CONFIG_MAX_VIEWS; ++ii)
 			{
 				for (uint32_t eye = 0; eye < uint32_t(_hmdEnabled)+1; ++eye)
 				{
 					bx::float4x4_mul(&m_viewProj[eye][ii].un.f4x4
-						, &m_view[eye][ii].un.f4x4
+						, &_render->m_view[eye][ii].un.f4x4
 						, &_render->m_proj[eye][ii].un.f4x4
 						);
 				}
@@ -115,7 +80,7 @@ namespace bgfx
 					{
 						_renderer->setShaderUniform4x4f(flags
 							, predefined.m_loc
-							, m_view[eye][view].un.val
+							, _render->m_view[eye][view].un.val
 							, bx::uint32_min(mtxRegs, predefined.m_count)
 							);
 					}
@@ -128,7 +93,7 @@ namespace bgfx
 						{
 							m_invViewCached = viewEye;
 							bx::float4x4_inverse(&m_invView.un.f4x4
-								, &m_view[eye][view].un.f4x4
+								, &_render->m_view[eye][view].un.f4x4
 								);
 						}
 
@@ -215,7 +180,7 @@ namespace bgfx
 						const Matrix4& model = _render->m_matrixCache.m_cache[_draw.m_matrix];
 						bx::float4x4_mul(&modelView.un.f4x4
 							, &model.un.f4x4
-							, &m_view[eye][view].un.f4x4
+							, &_render->m_view[eye][view].un.f4x4
 							);
 						_renderer->setShaderUniform4x4f(flags
 							, predefined.m_loc
@@ -258,9 +223,7 @@ namespace bgfx
 			}
 		}
 
-		Matrix4  m_viewTmp[2][BGFX_CONFIG_MAX_VIEWS];
 		Matrix4  m_viewProj[2][BGFX_CONFIG_MAX_VIEWS];
-		Matrix4* m_view[2];
 		Rect     m_rect;
 		Matrix4  m_invView;
 		Matrix4  m_invProj;

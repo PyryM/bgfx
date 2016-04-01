@@ -3302,11 +3302,11 @@ namespace bgfx
 		s_ctx->setViewFrameBuffer(_id, _handle);
 	}
 
-	void setViewTransform(uint8_t _id, const void* _view, const void* _projL, uint8_t _flags, const void* _projR)
+	void setViewTransform(uint8_t _id, const void* _viewL, const void* _projL, uint8_t _flags, const void* _viewR, const void* _projR)
 	{
 		BGFX_CHECK_MAIN_THREAD();
 		BX_CHECK(checkView(_id), "Invalid view id: %d", _id);
-		s_ctx->setViewTransform(_id, _view, _projL, _flags, _projR);
+		s_ctx->setViewTransform(_id, _viewL, _projL, _flags, _viewR, _projR);
 	}
 
 	void setViewRemap(uint8_t _id, uint8_t _num, const void* _remap)
@@ -4284,9 +4284,9 @@ BGFX_C_API void bgfx_set_view_transform(uint8_t _id, const void* _view, const vo
 	bgfx::setViewTransform(_id, _view, _proj);
 }
 
-BGFX_C_API void bgfx_set_view_transform_stereo(uint8_t _id, const void* _view, const void* _projL, uint8_t _flags, const void* _projR)
+BGFX_C_API void bgfx_set_view_transform_stereo(uint8_t _id, const void* _viewL, const void* _projL, uint8_t _flags, const void* _viewR, const void* _projR)
 {
-	bgfx::setViewTransform(_id, _view, _projL, _flags, _projR);
+	bgfx::setViewTransform(_id, _viewL, _projL, _flags, _viewR, _projR);
 }
 
 BGFX_C_API void bgfx_set_view_remap(uint8_t _id, uint8_t _num, const void* _remap)
