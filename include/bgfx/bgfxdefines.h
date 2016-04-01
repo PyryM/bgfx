@@ -404,8 +404,10 @@
 #define BGFX_CAPS_FORMAT_TEXTURE_MSAA             UINT16_C(0x2000) //!< Texture can be sampled as MSAA.
 
 ///
-#define BGFX_VIEW_NONE   UINT8_C(0x00) //!<
-#define BGFX_VIEW_STEREO UINT8_C(0x01) //!< View will be rendered in stereo mode.
+#define BGFX_VIEW_NONE      UINT8_C(0x00) //!<
+#define BGFX_VIEW_LEFT_EYE  UINT8_C(0x01)
+#define BGFX_VIEW_RIGHT_EYE UINT8_C(0x02)
+#define BGFX_VIEW_STEREO    (BGFX_VIEW_LEFT_EYE | BGFX_VIEW_RIGHT_EYE)
 
 ///
 #define BGFX_SUBMIT_EYE_LEFT       UINT8_C(0x01) //!< Submit to left eye.

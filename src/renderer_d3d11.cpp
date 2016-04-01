@@ -2498,6 +2498,15 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 				m_currentColor = m_backBufferColor;
 				m_currentDepthStencil = m_backBufferDepthStencil;
 			}
+			else if(BGFX_HMD_FRAMEBUFFER_HANDLE == _fbh.idx)
+			{
+				invalidateTextureStage();
+
+				m_currentColor = m_ovr.getRtv();
+				m_currentDepthStencil = m_ovr.getDsv();				
+
+				m_deviceCtx->OMSetRenderTargets(1, &m_currentColor, &m_currentDepthStencil);
+			}
 			else
 			{
 				invalidateTextureStage();
@@ -4946,7 +4955,8 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 						setFrameBuffer(fbh);
 					}
 
-					viewRestart = ( (BGFX_VIEW_STEREO == (_render->m_viewFlags[view] & BGFX_VIEW_STEREO) ) );
+					unsigned int viewStereoMode = _render->m_viewFlags[view] & BGFX_VIEW_STEREO;
+					viewRestart = ( BGFX_VIEW_STEREO == viewStereoMode );
 					viewRestart &= hmdEnabled;
 					if (viewRestart)
 					{
@@ -4961,7 +4971,14 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 					}
 					else
 					{
-						eye = 0;
+						if( BGFX_VIEW_RIGHT_EYE == viewStereoMode )
+						{
+							eye = 1;
+						} 
+						else // either BGFX_VIEW_NONE or BGFX_VIEW_LEFT_EYE
+						{
+							eye = 0;
+						}
 					}
 
 					PIX_ENDEVENT();
@@ -4974,7 +4991,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 					BGFX_GPU_PROFILER_BEGIN_DYNAMIC(s_viewName[view]);
 
 					viewState.m_rect = _render->m_rect[view];
-					if (viewRestart)
+					if (BGFX_VIEW_NONE != viewStereoMode)
 					{
 						if (BX_ENABLED(BGFX_CONFIG_DEBUG_PIX) )
 						{

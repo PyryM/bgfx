@@ -2027,9 +2027,10 @@ namespace bgfx
 	///
 	void setViewTransform(
 		  uint8_t _id
-		, const void* _view
+		, const void* _viewL
 		, const void* _projL
 		, uint8_t _flags = BGFX_VIEW_STEREO
+		, const void* _viewR = NULL,
 		, const void* _projR = NULL
 		);
 

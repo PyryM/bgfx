@@ -717,7 +717,7 @@ BGFX_C_API void bgfx_set_view_frame_buffer(uint8_t _id, bgfx_frame_buffer_handle
 BGFX_C_API void bgfx_set_view_transform(uint8_t _id, const void* _view, const void* _proj);
 
 /**/
-BGFX_C_API void bgfx_set_view_transform_stereo(uint8_t _id, const void* _view, const void* _projL, uint8_t _flags, const void* _projR);
+BGFX_C_API void bgfx_set_view_transform_stereo(uint8_t _id, const void* _viewL, const void* _projL, uint8_t _flags, const void* _viewR, const void* _projR);
 
 /**/
 BGFX_C_API void bgfx_set_view_remap(uint8_t _id, uint8_t _num, const void* _remap);
