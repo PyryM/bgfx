@@ -2414,6 +2414,13 @@ namespace bgfx { namespace gl
 			m_textures[_handle.idx].overrideInternal(_ptr);
 		}
 
+		void getInternalInfo(TextureHandle _handle, NativeTextureInfo* _info) BX_OVERRIDE
+		{
+			_info->glHandle = m_textures[_handle.idx].m_id;
+			_info->d3d11Ptr = NULL;
+			_info->d3d11Srv = NULL;
+		}
+
 		uintptr_t getInternal(TextureHandle _handle) BX_OVERRIDE
 		{
 			return uintptr_t(m_textures[_handle.idx].m_id);

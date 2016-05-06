@@ -1995,6 +1995,13 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 			m_textures[_handle.idx].overrideInternal(_ptr);
 		}
 
+		void getInternalInfo(TextureHandle _handle, NativeTextureInfo* _info) BX_OVERRIDE
+		{
+			_info->glHandle = 0;
+			_info->d3d11Ptr = m_textures[_handle.idx].m_ptr;
+			_info->d3d11Srv = m_textures[_handle.idx].m_srv;
+		}
+
 		uintptr_t getInternal(TextureHandle _handle) BX_OVERRIDE
 		{
 			// Resource ref. counts might be messed up outside of bgfx.

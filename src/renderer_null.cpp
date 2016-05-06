@@ -125,6 +125,10 @@ namespace bgfx { namespace noop
 		{
 		}
 
+		void getInternalInfo(TextureHandle _handle, NativeTextureInfo* _info) BX_OVERRIDE
+		{
+		}
+
 		uintptr_t getInternal(TextureHandle /*_handle*/) BX_OVERRIDE
 		{
 			return 0;

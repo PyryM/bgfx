@@ -71,6 +71,17 @@ namespace bgfx
 		void* context;           //!< GL context, or D3D device.
 	};
 
+	/// Native texture info.
+	///
+	/// @attention C99 equivalent is `bgfx_native_texture_info_t`.
+	///
+	struct NativeTextureInfo
+	{
+		uint32_t glHandle;
+		void* d3d11Ptr;
+		void* d3d11Srv;
+	};
+
 	/// Get internal data for interop.
 	///
 	/// @attention It's expected you understand some bgfx internals before you
@@ -81,6 +92,14 @@ namespace bgfx
 	/// @attention C99 equivalent is `bgfx_get_internal_data`.
 	///
 	const InternalData* getInternalData();
+
+	/// Get native texture handles.
+	///
+	/// @attention C99 equivalent is `bgfx_get_native_texture_info`.
+	///
+	/// @param[in] _handle Texture handle
+	/// @param[out] _info Returns native texture handles
+	void getNativeTextureInfo(TextureHandle _handle, NativeTextureInfo* _info);
 
 	/// Override internal texture with externally created texture. Previously
 	/// created internal texture will released.

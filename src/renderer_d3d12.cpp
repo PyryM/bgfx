@@ -1398,6 +1398,11 @@ namespace bgfx { namespace d3d12
 			BX_UNUSED(_handle, _ptr);
 		}
 
+		void getInternalInfo(TextureHandle _handle, NativeTextureInfo* _info) BX_OVERRIDE
+		{
+			BX_UNUSED(_handle, _info);
+		}
+
 		uintptr_t getInternal(TextureHandle _handle) BX_OVERRIDE
 		{
 			BX_UNUSED(_handle);

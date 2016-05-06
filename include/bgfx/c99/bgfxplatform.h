@@ -53,7 +53,19 @@ typedef struct bgfx_internal_data
 } bgfx_internal_data_t;
 
 /**/
+typedef struct bgfx_native_texture_info
+{
+	uint32_t glHandle;
+	void* d3d11Ptr;
+	void* d3d11Srv;
+
+} bgfx_native_texture_info_t;
+
+/**/
 BGFX_C_API const bgfx_internal_data_t* bgfx_get_internal_data();
+
+/**/
+BGFX_C_API void bgfx_get_native_texture_info(bgfx_texture_handle_t _handle, bgfx_native_texture_info_t* _info);
 
 /**/
 BGFX_C_API uintptr_t bgfx_override_internal_texture_ptr(bgfx_texture_handle_t _handle, uintptr_t _ptr);

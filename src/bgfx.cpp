@@ -317,6 +317,14 @@ namespace bgfx
 		return &g_internalData;
 	}
 
+	void getNativeTextureInfo(TextureHandle _handle, NativeTextureInfo* _info)
+	{
+		BX_CHECK(NULL != _info, "_info can't be NULL");
+		BGFX_CHECK_RENDER_THREAD();
+		RendererContextI* rci = s_ctx->m_renderCtx;
+		rci->getInternalInfo(_handle, _info);
+	}
+
 	uintptr_t overrideInternal(TextureHandle _handle, uintptr_t _ptr)
 	{
 		BGFX_CHECK_RENDER_THREAD();
@@ -4539,6 +4547,13 @@ BGFX_C_API void bgfx_set_platform_data(const bgfx_platform_data_t* _data)
 BGFX_C_API const bgfx_internal_data_t* bgfx_get_internal_data()
 {
 	return (const bgfx_internal_data_t*)bgfx::getInternalData();
+}
+
+BGFX_C_API void bgfx_get_native_texture_info(bgfx_texture_handle_t _handle, bgfx_native_texture_info_t* _info)
+{
+	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } handle = { _handle };
+	bgfx::NativeTextureInfo* info = (bgfx::NativeTextureInfo*)_info;
+	bgfx::getNativeTextureInfo(handle.cpp, info);
 }
 
 BGFX_C_API uintptr_t bgfx_override_internal_texture_ptr(bgfx_texture_handle_t _handle, uintptr_t _ptr)
