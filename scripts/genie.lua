@@ -43,6 +43,11 @@ newoption {
 	description = "Enable building tools.",
 }
 
+newoption {
+	trigger = "with-single-threaded",
+	description = "Force single-threaded renderer.",
+}
+
 solution "bgfx"
 	configurations {
 		"Debug",

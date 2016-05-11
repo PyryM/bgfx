@@ -43,6 +43,12 @@ function bgfxProject(_name, _kind, _defines)
 			_defines,
 		}
 
+		if _OPTIONS["with-single-threaded"] then
+			defines {
+				"BGFX_CONFIG_MULTITHREADED=0",
+			}
+		end
+
 		if _OPTIONS["with-glfw"] then
 			defines {
 				"BGFX_CONFIG_MULTITHREADED=0",
