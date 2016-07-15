@@ -70,8 +70,9 @@ solution "bgfx"
 	language "C++"
 	startproject "example-00-helloworld"
 
-BGFX_DIR = path.getabsolute("..")
-BX_DIR   = os.getenv("BX_DIR")
+MODULE_DIR = path.getabsolute("../")
+BGFX_DIR   = path.getabsolute("..")
+BX_DIR     = os.getenv("BX_DIR")
 
 local BGFX_BUILD_DIR = path.join(BGFX_DIR, ".build")
 local BGFX_THIRD_PARTY_DIR = path.join(BGFX_DIR, "3rdparty")
@@ -410,5 +411,6 @@ if _OPTIONS["with-tools"] then
 	group "tools"
 	dofile "shaderc.lua"
 	dofile "texturec.lua"
+	dofile "texturev.lua"
 	dofile "geometryc.lua"
 end

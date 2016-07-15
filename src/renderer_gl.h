@@ -108,6 +108,7 @@ typedef uint64_t GLuint64;
 
 #include "renderer.h"
 #include "hmd_ovr.h"
+#include "hmd_openvr.h"
 #include "debug_renderdoc.h"
 
 #ifndef GL_LUMINANCE
@@ -639,6 +640,18 @@ typedef uint64_t GLuint64;
 #	define GL_UNSIGNED_INT_SAMPLER_CUBE 0x8DD4
 #endif // GL_UNSIGNED_INT_SAMPLER_CUBE
 
+#ifndef GL_SAMPLER_2D_MULTISAMPLE
+#	define GL_SAMPLER_2D_MULTISAMPLE 0x9108
+#endif // GL_SAMPLER_2D_MULTISAMPLE
+
+#ifndef GL_INT_SAMPLER_2D_MULTISAMPLE
+#	define GL_INT_SAMPLER_2D_MULTISAMPLE 0x9109
+#endif // GL_INT_SAMPLER_2D_MULTISAMPLE
+
+#ifndef GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE
+#	define GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE 0x910A
+#endif // GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE
+
 #ifndef GL_SAMPLER_2D_SHADOW
 #	define GL_SAMPLER_2D_SHADOW 0x8B62
 #endif // GL_SAMPLER_2D_SHADOW
@@ -866,6 +879,10 @@ typedef uint64_t GLuint64;
 #	define GL_DISPATCH_INDIRECT_BUFFER 0x90EE
 #endif // GL_DISPATCH_INDIRECT_BUFFER
 
+#ifndef GL_MAX_NAME_LENGTH
+#	define GL_MAX_NAME_LENGTH 0x92F6
+#endif // GL_MAX_NAME_LENGTH
+
 #if BX_PLATFORM_NACL
 #	include "glcontext_ppapi.h"
 #elif BX_PLATFORM_WINDOWS
@@ -901,6 +918,32 @@ namespace bgfx
 
 namespace bgfx { namespace gl
 {
+#if BGFX_CONFIG_USE_OVR
+	struct OVRBufferGL : public OVRBufferI
+	{
+		virtual void create(const ovrSession& _session, int _eyeIdx, int _msaaSamples) BX_OVERRIDE;
+		virtual void destroy(const ovrSession& _session) BX_OVERRIDE;
+		virtual void render(const ovrSession& _session) BX_OVERRIDE;
+		virtual void postRender(const ovrSession& _sesion) BX_OVERRIDE;
+
+		GLuint m_eyeFbo;
+		GLuint m_eyeTexId;
+		GLuint m_depthBuffer;
+		GLuint m_msaaEyeFbo;
+		GLuint m_msaaEyeTexId;
+		GLuint m_msaaDepthBuffer;
+	};
+
+	struct OVRMirrorGL : public OVRMirrorI
+	{
+		virtual void create(const ovrSession& _session, int _width, int _height) BX_OVERRIDE;
+		virtual void destroy(const ovrSession& _session) BX_OVERRIDE;
+		virtual void blit(const ovrSession& _session) BX_OVERRIDE;
+
+		GLuint m_mirrorFBO;
+	};
+#endif // BGFX_CONFIG_USE_OVR
+
 	void dumpExtensions(const char* _extensions);
 
 	const char* glEnumName(GLenum _enum);
@@ -1262,8 +1305,8 @@ namespace bgfx { namespace gl
 
 		void create(const ShaderGL& _vsh, const ShaderGL& _fsh);
 		void destroy();
- 		void init();
- 		void bindAttributes(const VertexDecl& _vertexDecl, uint32_t _baseVertex = 0) const;
+		void init();
+		void bindAttributes(const VertexDecl& _vertexDecl, uint32_t _baseVertex = 0) const;
 		void bindInstanceData(uint32_t _stride, uint32_t _baseVertex = 0) const;
 
 		void add(uint32_t _hash)
@@ -1277,8 +1320,8 @@ namespace bgfx { namespace gl
 		GLint m_attributes[Attrib::Count]; // sparse
 		GLint m_instanceData[BGFX_CONFIG_MAX_INSTANCE_DATA_COUNT+1];
 
- 		GLint m_sampler[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS];
- 		uint8_t m_numSamplers;
+		GLint m_sampler[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS];
+		uint8_t m_numSamplers;
 
 		UniformBuffer* m_constantBuffer;
 		PredefinedUniform m_predefined[PredefinedUniform::Count];
