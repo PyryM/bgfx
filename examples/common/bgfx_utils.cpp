@@ -14,11 +14,20 @@ namespace stl = tinystl;
 
 #include <bgfx/bgfx.h>
 #include <bx/commandline.h>
+#include <bx/endian.h>
 #include <bx/fpumath.h>
 #include <bx/readerwriter.h>
 #include <bx/string.h>
 #include "entry/entry.h"
 #include <ib-compress/indexbufferdecompression.h>
+
+#define LODEPNG_NO_COMPILE_ENCODER
+#define LODEPNG_NO_COMPILE_DISK
+#define LODEPNG_NO_COMPILE_ANCILLARY_CHUNKS
+#define LODEPNG_NO_COMPILE_ERROR_TEXT
+#define LODEPNG_NO_COMPILE_ALLOCATORS
+#define LODEPNG_NO_COMPILE_CPP
+#include <lodepng/lodepng.h>
 
 #include "bgfx_utils.h"
 
@@ -99,28 +108,22 @@ static bgfx::ShaderHandle loadShader(bx::FileReaderI* _reader, const char* _name
 {
 	char filePath[512];
 
-	const char* shaderPath = "shaders/dx9/";
+	const char* shaderPath = "???";
 
 	switch (bgfx::getRendererType() )
 	{
+	case bgfx::RendererType::Noop:
+	case bgfx::RendererType::Direct3D9:  shaderPath = "shaders/dx9/";   break;
 	case bgfx::RendererType::Direct3D11:
-	case bgfx::RendererType::Direct3D12:
-		shaderPath = "shaders/dx11/";
-		break;
+	case bgfx::RendererType::Direct3D12: shaderPath = "shaders/dx11/";  break;
+	case bgfx::RendererType::Gnm:        shaderPath = "shaders/pssl/";  break;
+	case bgfx::RendererType::Metal:      shaderPath = "shaders/metal/"; break;
+	case bgfx::RendererType::OpenGL:     shaderPath = "shaders/glsl/";  break;
+	case bgfx::RendererType::OpenGLES:   shaderPath = "shaders/essl/";  break;
+	case bgfx::RendererType::Vulkan:     shaderPath = "shaders/spirv/"; break;
 
-	case bgfx::RendererType::OpenGL:
-		shaderPath = "shaders/glsl/";
-		break;
-
-	case bgfx::RendererType::Metal:
-		shaderPath = "shaders/metal/";
-		break;
-
-	case bgfx::RendererType::OpenGLES:
-		shaderPath = "shaders/gles/";
-		break;
-
-	default:
+	case bgfx::RendererType::Count:
+		BX_CHECK(false, "You should not be here!");
 		break;
 	}
 
@@ -154,7 +157,9 @@ bgfx::ProgramHandle loadProgram(const char* _vsName, const char* _fsName)
 }
 
 typedef unsigned char stbi_uc;
-extern "C" stbi_uc *stbi_load_from_memory(stbi_uc const *buffer, int len, int *x, int *y, int *comp, int req_comp);
+extern "C" stbi_uc* stbi_load_from_memory(stbi_uc const* _buffer, int _len, int* _x, int* _y, int* _comp, int _req_comp);
+extern "C" void stbi_image_free(void* _ptr);
+extern void lodepng_free(void* _ptr);
 
 bgfx::TextureHandle loadTexture(bx::FileReaderI* _reader, const char* _filePath, uint32_t _flags, uint8_t _skip, bgfx::TextureInfo* _info)
 {
@@ -180,24 +185,127 @@ bgfx::TextureHandle loadTexture(bx::FileReaderI* _reader, const char* _filePath,
 	void* data = loadMem(_reader, allocator, _filePath, &size);
 	if (NULL != data)
 	{
-		int width  = 0;
-		int height = 0;
-		int comp   = 0;
+		bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8;
+		uint32_t bpp = 32;
 
-		uint8_t* img = NULL;
-		img = stbi_load_from_memory( (uint8_t*)data, size, &width, &height, &comp, 4);
+		uint32_t width  = 0;
+		uint32_t height = 0;
+
+		typedef void (*ReleaseFn)(void* _ptr);
+		ReleaseFn release = stbi_image_free;
+
+		uint8_t* out = NULL;
+		static uint8_t pngMagic[] = { 0x89, 0x50, 0x4E, 0x47, 0x0d, 0x0a };
+		if (0 == memcmp(data, pngMagic, sizeof(pngMagic) ) )
+		{
+			release = lodepng_free;
+
+			unsigned error;
+			LodePNGState state;
+			lodepng_state_init(&state);
+			state.decoder.color_convert = 0;
+			error = lodepng_decode(&out, &width, &height, &state, (uint8_t*)data, size);
+
+			if (0 == error)
+			{
+				switch (state.info_raw.bitdepth)
+				{
+				case 8:
+					switch (state.info_raw.colortype)
+					{
+					case LCT_GREY:
+						format = bgfx::TextureFormat::R8;
+						bpp    = 8;
+						break;
+
+					case LCT_GREY_ALPHA:
+						format = bgfx::TextureFormat::RG8;
+						bpp    = 16;
+						break;
+
+					case LCT_RGB:
+						format = bgfx::TextureFormat::RGB8;
+						bpp    = 24;
+						break;
+
+					case LCT_RGBA:
+						format = bgfx::TextureFormat::RGBA8;
+						bpp    = 32;
+						break;
+
+					case LCT_PALETTE:
+						format = bgfx::TextureFormat::R8;
+						bpp    = 8;
+						break;
+					}
+					break;
+
+				case 16:
+					switch (state.info_raw.colortype)
+					{
+					case LCT_GREY:
+						for (uint32_t ii = 0, num = width*height; ii < num; ++ii)
+						{
+							uint16_t* rgba = (uint16_t*)out + ii*4;
+							rgba[0] = bx::toHostEndian(rgba[0], false);
+						}
+						format = bgfx::TextureFormat::R16;
+						bpp    = 16;
+						break;
+
+					case LCT_GREY_ALPHA:
+						for (uint32_t ii = 0, num = width*height; ii < num; ++ii)
+						{
+							uint16_t* rgba = (uint16_t*)out + ii*4;
+							rgba[0] = bx::toHostEndian(rgba[0], false);
+							rgba[1] = bx::toHostEndian(rgba[1], false);
+						}
+						format = bgfx::TextureFormat::R16;
+						bpp    = 16;
+						break;
+
+					case LCT_RGBA:
+						for (uint32_t ii = 0, num = width*height; ii < num; ++ii)
+						{
+							uint16_t* rgba = (uint16_t*)out + ii*4;
+							rgba[0] = bx::toHostEndian(rgba[0], false);
+							rgba[1] = bx::toHostEndian(rgba[1], false);
+							rgba[2] = bx::toHostEndian(rgba[2], false);
+							rgba[3] = bx::toHostEndian(rgba[3], false);
+						}
+						format = bgfx::TextureFormat::RGBA16;
+						bpp    = 64;
+						break;
+
+					case LCT_RGB:
+					case LCT_PALETTE:
+						break;
+					}
+					break;
+
+				default:
+					break;
+				}
+			}
+
+			lodepng_state_cleanup(&state);
+		}
+		else
+		{
+			int comp = 0;
+			out = stbi_load_from_memory( (uint8_t*)data, size, (int*)&width, (int*)&height, &comp, 4);
+		}
 
 		BX_FREE(allocator, data);
 
-		if (NULL != img)
+		if (NULL != out)
 		{
-			handle = bgfx::createTexture2D(uint16_t(width), uint16_t(height), 1
-											, bgfx::TextureFormat::RGBA8
+			handle = bgfx::createTexture2D(uint16_t(width), uint16_t(height), false, 1
+											, format
 											, _flags
-											, bgfx::copy(img, width*height*4)
+											, bgfx::copy(out, width*height*bpp/8)
 											);
-
-			free(img);
+			release(out);
 
 			if (NULL != _info)
 			{
@@ -206,8 +314,9 @@ bgfx::TextureHandle loadTexture(bx::FileReaderI* _reader, const char* _filePath,
 					, uint16_t(height)
 					, 0
 					, false
+					, false
 					, 1
-					, bgfx::TextureFormat::RGBA8
+					, format
 					);
 			}
 		}
@@ -645,7 +754,7 @@ Args::Args(int _argc, char** _argv)
 	}
 	else if (cmdLine.hasArg("noop") )
 	{
-		m_type = bgfx::RendererType::Null;
+		m_type = bgfx::RendererType::Noop;
 	}
 	else if (BX_ENABLED(BX_PLATFORM_WINDOWS) )
 	{

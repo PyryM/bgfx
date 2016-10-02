@@ -1,4 +1,4 @@
-// dear imgui, v1.49 WIP
+// dear imgui, v1.50 WIP
 // (demo code)
 
 // Don't remove this file from your project! It is useful reference code that you can execute.
@@ -11,7 +11,7 @@
 
 #include "imgui.h"
 #include <ctype.h>          // toupper, isprint
-#include <math.h>           // sqrtf, fabsf, fmodf, powf, cosf, sinf, floorf, ceilf
+#include <math.h>           // sqrtf, powf, cosf, sinf, floorf, ceilf
 #include <stdio.h>          // vsnprintf, sscanf, printf
 #include <stdlib.h>         // NULL, malloc, free, qsort, atoi
 #if defined(_MSC_VER) && _MSC_VER <= 1500 // MSVC 2008 or earlier
@@ -25,13 +25,17 @@
 #define snprintf _snprintf
 #endif
 #ifdef __clang__
+#pragma clang diagnostic ignored "-Wold-style-cast"             // warning : use of old-style cast                              // yes, they are more terse.
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"    // warning : 'xx' is deprecated: The POSIX name for this item.. // for strdup used in demo code (so user can copy & paste the code)
 #pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"   // warning : cast to 'void *' from smaller integer type 'int'
 #pragma clang diagnostic ignored "-Wformat-security"            // warning : warning: format string is not a string literal
-#endif
-#ifdef __GNUC__
+#pragma clang diagnostic ignored "-Wexit-time-destructors"      // warning : declaration requires an exit-time destructor       // exit-time destruction order is undefined. if MemFree() leads to users code that has been disabled before exit it might cause problems. ImGui coding style welcomes static/globals.
+#pragma clang diagnostic ignored "-Wreserved-id-macro"          // warning : macro name is a reserved identifier                // 
+#elif defined(__GNUC__)
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"          // warning: cast to pointer from integer of different size
 #pragma GCC diagnostic ignored "-Wformat-security"              // warning : format string is not a string literal (potentially insecure)
+#pragma GCC diagnostic ignored "-Wdouble-promotion"             // warning: implicit conversion from 'float' to 'double' when passing argument to function
+#pragma GCC diagnostic ignored "-Wconversion"                   // warning: conversion to 'xxxx' from 'xxxx' may alter its value
 #endif
 
 // Play it nice with Windows users. Notepad in 2015 still doesn't display text data with Unix-style \n.
@@ -42,6 +46,7 @@
 #endif
 
 #define IM_ARRAYSIZE(_ARR)  ((int)(sizeof(_ARR)/sizeof(*_ARR)))
+#define IM_MAX(_A,_B)       (((_A) >= (_B)) ? (_A) : (_B))
 
 //-----------------------------------------------------------------------------
 // DEMO CODE
@@ -49,15 +54,16 @@
 
 #ifndef IMGUI_DISABLE_TEST_WINDOWS
 
-static void ShowExampleAppConsole(bool* opened);
-static void ShowExampleAppLog(bool* opened);
-static void ShowExampleAppLayout(bool* opened);
-static void ShowExampleAppPropertyEditor(bool* opened);
-static void ShowExampleAppLongText(bool* opened);
-static void ShowExampleAppAutoResize(bool* opened);
-static void ShowExampleAppFixedOverlay(bool* opened);
-static void ShowExampleAppManipulatingWindowTitle(bool* opened);
-static void ShowExampleAppCustomRendering(bool* opened);
+static void ShowExampleAppConsole(bool* p_open);
+static void ShowExampleAppLog(bool* p_open);
+static void ShowExampleAppLayout(bool* p_open);
+static void ShowExampleAppPropertyEditor(bool* p_open);
+static void ShowExampleAppLongText(bool* p_open);
+static void ShowExampleAppAutoResize(bool* p_open);
+static void ShowExampleAppConstrainedResize(bool* p_open);
+static void ShowExampleAppFixedOverlay(bool* p_open);
+static void ShowExampleAppManipulatingWindowTitle(bool* p_open);
+static void ShowExampleAppCustomRendering(bool* p_open);
 static void ShowExampleAppMainMenuBar();
 static void ShowExampleMenuFile();
 
@@ -65,7 +71,13 @@ static void ShowHelpMarker(const char* desc)
 {
     ImGui::TextDisabled("(?)");
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip(desc);
+    {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(450.0f);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
 }
 
 void ImGui::ShowUserGuide()
@@ -91,7 +103,7 @@ void ImGui::ShowUserGuide()
 }
 
 // Demonstrate most ImGui features (big function!)
-void ImGui::ShowTestWindow(bool* p_opened)
+void ImGui::ShowTestWindow(bool* p_open)
 {
     // Examples apps
     static bool show_app_main_menu_bar = false;
@@ -101,6 +113,7 @@ void ImGui::ShowTestWindow(bool* p_opened)
     static bool show_app_property_editor = false;
     static bool show_app_long_text = false;
     static bool show_app_auto_resize = false;
+    static bool show_app_constrained_resize = false;
     static bool show_app_fixed_overlay = false;
     static bool show_app_manipulating_window_title = false;
     static bool show_app_custom_rendering = false;
@@ -116,6 +129,7 @@ void ImGui::ShowTestWindow(bool* p_opened)
     if (show_app_property_editor) ShowExampleAppPropertyEditor(&show_app_property_editor);
     if (show_app_long_text) ShowExampleAppLongText(&show_app_long_text);
     if (show_app_auto_resize) ShowExampleAppAutoResize(&show_app_auto_resize);
+    if (show_app_constrained_resize) ShowExampleAppConstrainedResize(&show_app_constrained_resize);
     if (show_app_fixed_overlay) ShowExampleAppFixedOverlay(&show_app_fixed_overlay);
     if (show_app_manipulating_window_title) ShowExampleAppManipulatingWindowTitle(&show_app_manipulating_window_title);
     if (show_app_custom_rendering) ShowExampleAppCustomRendering(&show_app_custom_rendering);
@@ -150,7 +164,7 @@ void ImGui::ShowTestWindow(bool* p_opened)
     if (no_collapse)  window_flags |= ImGuiWindowFlags_NoCollapse;
     if (!no_menu)     window_flags |= ImGuiWindowFlags_MenuBar;
     ImGui::SetNextWindowSize(ImVec2(550,680), ImGuiSetCond_FirstUseEver);
-    if (!ImGui::Begin("ImGui Demo", p_opened, window_flags))
+    if (!ImGui::Begin("ImGui Demo", p_open, window_flags))
     {
         // Early out if the window is collapsed, as an optimization.
         ImGui::End();
@@ -179,6 +193,7 @@ void ImGui::ShowTestWindow(bool* p_opened)
             ImGui::MenuItem("Property editor", NULL, &show_app_property_editor);
             ImGui::MenuItem("Long text display", NULL, &show_app_long_text);
             ImGui::MenuItem("Auto-resizing window", NULL, &show_app_auto_resize);
+            ImGui::MenuItem("Constrained-resizing window", NULL, &show_app_constrained_resize);
             ImGui::MenuItem("Simple overlay", NULL, &show_app_fixed_overlay);
             ImGui::MenuItem("Manipulating window title", NULL, &show_app_manipulating_window_title);
             ImGui::MenuItem("Custom rendering", NULL, &show_app_custom_rendering);
@@ -217,47 +232,6 @@ void ImGui::ShowTestWindow(bool* p_opened)
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Fonts", "Fonts (%d)", ImGui::GetIO().Fonts->Fonts.Size))
-        {
-            ImGui::SameLine(); ShowHelpMarker("Tip: Load fonts with io.Fonts->AddFontFromFileTTF()\nbefore calling io.Fonts->GetTex* functions.");
-            ImFontAtlas* atlas = ImGui::GetIO().Fonts;
-            if (ImGui::TreeNode("Atlas texture", "Atlas texture (%dx%d pixels)", atlas->TexWidth, atlas->TexHeight))
-            {
-                ImGui::Image(atlas->TexID, ImVec2((float)atlas->TexWidth, (float)atlas->TexHeight), ImVec2(0,0), ImVec2(1,1), ImColor(255,255,255,255), ImColor(255,255,255,128));
-                ImGui::TreePop();
-            }
-            ImGui::PushItemWidth(100);
-            for (int i = 0; i < atlas->Fonts.Size; i++)
-            {
-                ImFont* font = atlas->Fonts[i];
-                ImGui::BulletText("Font %d: \'%s\', %.2f px, %d glyphs", i, font->ConfigData ? font->ConfigData[0].Name : "", font->FontSize, font->Glyphs.Size);
-                ImGui::TreePush((void*)(intptr_t)i);
-                if (i > 0) { ImGui::SameLine(); if (ImGui::SmallButton("Set as default")) { atlas->Fonts[i] = atlas->Fonts[0]; atlas->Fonts[0] = font; } }
-                ImGui::PushFont(font);
-                ImGui::Text("The quick brown fox jumps over the lazy dog");
-                ImGui::PopFont();
-                if (ImGui::TreeNode("Details"))
-                {
-                    ImGui::DragFloat("font scale", &font->Scale, 0.005f, 0.3f, 2.0f, "%.1f");             // scale only this font
-                    ImGui::Text("Ascent: %f, Descent: %f, Height: %f", font->Ascent, font->Descent, font->Ascent - font->Descent);
-                    ImGui::Text("Fallback character: '%c' (%d)", font->FallbackChar, font->FallbackChar);
-                    for (int config_i = 0; config_i < font->ConfigDataCount; config_i++)
-                    {
-                        ImFontConfig* cfg = &font->ConfigData[config_i];
-                        ImGui::BulletText("Input %d: \'%s\'\nOversample: (%d,%d), PixelSnapH: %d", config_i, cfg->Name, cfg->OversampleH, cfg->OversampleV, cfg->PixelSnapH);
-                    }
-                    ImGui::TreePop();
-                }
-                ImGui::TreePop();
-            }
-            static float window_scale = 1.0f;
-            ImGui::DragFloat("this window scale", &window_scale, 0.005f, 0.3f, 2.0f, "%.1f");              // scale only this window
-            ImGui::DragFloat("global scale", &ImGui::GetIO().FontGlobalScale, 0.005f, 0.3f, 2.0f, "%.1f"); // scale everything
-            ImGui::PopItemWidth();
-            ImGui::SetWindowFontScale(window_scale);
-            ImGui::TreePop();
-        }
-
         if (ImGui::TreeNode("Logging"))
         {
             ImGui::TextWrapped("The logging API redirects all text output so you can easily capture the content of a window or a block. Tree nodes can be automatically expanded. You can also call ImGui::LogText() to output directly to the log without a visual output.");
@@ -283,34 +257,53 @@ void ImGui::ShowTestWindow(bool* p_opened)
                 ImGui::TreePop();
             }
 
-            if (ImGui::TreeNode("With selectable nodes"))
+            if (ImGui::TreeNode("Advanced, with Selectable nodes"))
             {
-                ShowHelpMarker("Click to select, CTRL+Click to toggle, click on arrows to open");
-                static int selection_mask = 0x02;   // Dumb representation of what may be user-side selection state. You may carry selection state inside or outside your objects in whatever format you see fit.
-                int node_clicked = -1;
+                ShowHelpMarker("This is a more standard looking tree with selectable nodes.\nClick to select, CTRL+Click to toggle, click on arrows or double-click to open.");
+                static bool align_label_with_current_x_position = false;
+                ImGui::Checkbox("Align label with current X position)", &align_label_with_current_x_position);
+                ImGui::Text("Hello!");
+                if (align_label_with_current_x_position)
+                    ImGui::Unindent(ImGui::GetTreeNodeToLabelSpacing());
+
+                static int selection_mask = (1 << 2); // Dumb representation of what may be user-side selection state. You may carry selection state inside or outside your objects in whatever format you see fit.
+                int node_clicked = -1;                // Temporary storage of what node we have clicked to process selection at the end of the loop. May be a pointer to your own node type, etc.
+                ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, ImGui::GetFontSize()*3); // Increase spacing to differentiate leaves from expanded contents.
                 for (int i = 0; i < 6; i++)
                 {
-                    ImGuiTreeNodeFlags node_flags = ((selection_mask & (1 << i)) ? ImGuiTreeNodeFlags_Selected : 0) | ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-                    if (i >= 3)
-                        node_flags |= ImGuiTreeNodeFlags_AlwaysOpen;
-                    bool opened = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, "Selectable %s %d", (i >= 3) ? "Leaf" : "Node", i);
-                    if (ImGui::IsItemClicked()) 
-                        node_clicked = i;
-                    if (opened)
+                    // Disable the default open on single-click behavior and pass in Selected flag according to our selection state.
+                    ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ((selection_mask & (1 << i)) ? ImGuiTreeNodeFlags_Selected : 0);
+                    if (i < 3)
                     {
-                        ImGui::Text("Blah blah");
-                        ImGui::Text("Blah blah");
-                        ImGui::TreePop();
+                        // Node
+                        bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, "Selectable Node %d", i);
+                        if (ImGui::IsItemClicked()) 
+                            node_clicked = i;
+                        if (node_open)
+                        {
+                            ImGui::Text("Blah blah\nBlah Blah");
+                            ImGui::TreePop();
+                        }
+                    }
+                    else
+                    {
+                        // Leaf: The only reason we have a TreeNode at all is to allow selection of the leaf. Otherwise we can use BulletText() or TreeAdvanceToLabelPos()+Text().
+                        ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen, "Selectable Leaf %d", i);
+                        if (ImGui::IsItemClicked()) 
+                            node_clicked = i;
                     }
                 }
                 if (node_clicked != -1)
                 {
                     // Update selection state. Process outside of tree loop to avoid visual inconsistencies during the clicking-frame.
                     if (ImGui::GetIO().KeyCtrl)
-                        selection_mask ^= (1 << node_clicked);  // CTRL+click to toggle
-                    else
-                        selection_mask = (1 << node_clicked);   // Click to single-select
+                        selection_mask ^= (1 << node_clicked);          // CTRL+click to toggle
+                    else //if (!(selection_mask & (1 << node_clicked))) // Depending on selection behavior you want, this commented bit preserve selection when clicking on item that is part of the selection
+                        selection_mask = (1 << node_clicked);           // Click to single-select
                 }
+                ImGui::PopStyleVar();
+                if (align_label_with_current_x_position)
+                    ImGui::Indent(ImGui::GetTreeNodeToLabelSpacing());
                 ImGui::TreePop();
             }
             ImGui::TreePop();
@@ -421,14 +414,14 @@ void ImGui::ShowTestWindow(bool* p_opened)
             static int pressed_count = 0;
             for (int i = 0; i < 8; i++)
             {
-                if (i > 0)
-                    ImGui::SameLine();
                 ImGui::PushID(i);
                 int frame_padding = -1 + i;     // -1 = uses default padding
                 if (ImGui::ImageButton(tex_id, ImVec2(32,32), ImVec2(0,0), ImVec2(32.0f/tex_w,32/tex_h), frame_padding, ImColor(0,0,0,255)))
                     pressed_count += 1;
                 ImGui::PopID();
+                ImGui::SameLine();
             }
+            ImGui::NewLine();
             ImGui::Text("Pressed %d times.", pressed_count);
             ImGui::TreePop();
         }
@@ -453,6 +446,19 @@ void ImGui::ShowTestWindow(bool* p_opened)
                 ImGui::Selectable("main.c", &selected[0]);    ImGui::SameLine(300); ImGui::Text(" 2,345 bytes");
                 ImGui::Selectable("Hello.cpp", &selected[1]); ImGui::SameLine(300); ImGui::Text("12,345 bytes");
                 ImGui::Selectable("Hello.h", &selected[2]);   ImGui::SameLine(300); ImGui::Text(" 2,345 bytes");
+                ImGui::TreePop();
+            }
+            if (ImGui::TreeNode("In columns"))
+            {
+                ImGui::Columns(3, NULL, false);
+                static bool selected[16] = { 0 };
+                for (int i = 0; i < 16; i++)
+                {
+                    char label[32]; sprintf(label, "Item %d", i);
+                    if (ImGui::Selectable(label, &selected[i])) {}
+                    ImGui::NextColumn();
+                }
+                ImGui::Columns(1);
                 ImGui::TreePop();
             }
             if (ImGui::TreeNode("Grid"))
@@ -741,7 +747,7 @@ void ImGui::ShowTestWindow(bool* p_opened)
                 if (i > 0) ImGui::SameLine();
                 ImGui::PushID(i);
                 ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, 40);
-                ImGui::VSliderFloat("##v", ImVec2(40,160), &values[i], 0.0f, 1.0f, "%.2f");
+                ImGui::VSliderFloat("##v", ImVec2(40,160), &values[i], 0.0f, 1.0f, "%.2f\nsec");
                 ImGui::PopStyleVar();
                 ImGui::PopID();
             }
@@ -790,7 +796,7 @@ void ImGui::ShowTestWindow(bool* p_opened)
         ImGui::Separator();
         ImGui::PushItemWidth(100); ImGui::Combo("func", &func_type, "Sin\0Saw\0"); ImGui::PopItemWidth();
         ImGui::SameLine();
-        ImGui::SliderInt("Sample count", &display_count, 1, 500);
+        ImGui::SliderInt("Sample count", &display_count, 1, 400);
         float (*func)(void*, int) = (func_type == 0) ? Funcs::Sin : Funcs::Saw;
         ImGui::PlotLines("Lines", func, NULL, display_count, 0, NULL, -1.0f, 1.0f, ImVec2(0,80));
         ImGui::PlotHistogram("Histogram", func, NULL, display_count, 0, NULL, -1.0f, 1.0f, ImVec2(0,80));
@@ -896,7 +902,7 @@ void ImGui::ShowTestWindow(bool* p_opened)
 
         if (ImGui::TreeNode("Basic Horizontal Layout"))
         {
-            ImGui::TextWrapped("(Use ImGui::SameLine() to keep adding items to the right of the preceeding item)");
+            ImGui::TextWrapped("(Use ImGui::SameLine() to keep adding items to the right of the preceding item)");
 
             // Text
             ImGui::Text("Two items: Hello"); ImGui::SameLine();
@@ -1020,24 +1026,24 @@ void ImGui::ShowTestWindow(bool* p_opened)
             ImGui::Text("Hello\nWorld"); ImGui::SameLine();
             ImGui::Text("One\nTwo\nThree");
 
-            ImGui::Button("HOP"); ImGui::SameLine();
+            ImGui::Button("HOP##1"); ImGui::SameLine();
             ImGui::Text("Banana"); ImGui::SameLine();
             ImGui::Text("Hello\nWorld"); ImGui::SameLine();
             ImGui::Text("Banana");
 
-            ImGui::Button("HOP"); ImGui::SameLine();
+            ImGui::Button("HOP##2"); ImGui::SameLine();
             ImGui::Text("Hello\nWorld"); ImGui::SameLine();
             ImGui::Text("Banana");
 
-            ImGui::Button("TEST"); ImGui::SameLine();
+            ImGui::Button("TEST##1"); ImGui::SameLine();
             ImGui::Text("TEST"); ImGui::SameLine();
-            ImGui::SmallButton("TEST");
+            ImGui::SmallButton("TEST##2");
 
             ImGui::AlignFirstTextHeightToWidgets(); // If your line starts with text, call this to align it to upcoming widgets.
             ImGui::Text("Text aligned to Widget"); ImGui::SameLine();
-            ImGui::Button("Widget"); ImGui::SameLine();
+            ImGui::Button("Widget##1"); ImGui::SameLine();
             ImGui::Text("Widget"); ImGui::SameLine();
-            ImGui::SmallButton("Widget");
+            ImGui::SmallButton("Widget##2");
 
             // Tree
             const float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
@@ -1046,9 +1052,9 @@ void ImGui::ShowTestWindow(bool* p_opened)
             if (ImGui::TreeNode("Node##1")) { for (int i = 0; i < 6; i++) ImGui::BulletText("Item %d..", i); ImGui::TreePop(); }    // Dummy tree data
 
             ImGui::AlignFirstTextHeightToWidgets();         // Vertically align text node a bit lower so it'll be vertically centered with upcoming widget. Otherwise you can use SmallButton (smaller fit).
-            bool tree_opened = ImGui::TreeNode("Node##2");  // Common mistake to avoid: if we want to SameLine after TreeNode we need to do it before we add child content.
+            bool node_open = ImGui::TreeNode("Node##2");  // Common mistake to avoid: if we want to SameLine after TreeNode we need to do it before we add child content.
             ImGui::SameLine(0.0f, spacing); ImGui::Button("Button##2");
-            if (tree_opened) { for (int i = 0; i < 6; i++) ImGui::BulletText("Item %d..", i); ImGui::TreePop(); }   // Dummy tree data
+            if (node_open) { for (int i = 0; i < 6; i++) ImGui::BulletText("Item %d..", i); ImGui::TreePop(); }   // Dummy tree data
 
             // Bullet
             ImGui::Button("Button##3");
@@ -1068,9 +1074,11 @@ void ImGui::ShowTestWindow(bool* p_opened)
             static bool track = true;
             static int track_line = 50, scroll_to_px = 200;
             ImGui::Checkbox("Track", &track);
+            ImGui::PushItemWidth(100);
             ImGui::SameLine(130); track |= ImGui::DragInt("##line", &track_line, 0.25f, 0, 99, "Line %.0f");
             bool scroll_to = ImGui::Button("Scroll To");
             ImGui::SameLine(130); scroll_to |= ImGui::DragInt("##pos_y", &scroll_to_px, 1.00f, 0, 9999, "y = %.0f px");
+            ImGui::PopItemWidth();
             if (scroll_to) track = false;
 
             for (int i = 0; i < 5; i++)
@@ -1253,7 +1261,7 @@ void ImGui::ShowTestWindow(bool* p_opened)
                 ImGui::EndPopup();
             }
 
-            static ImVec4 color = ImColor(1.0f, 0.0f, 1.0f, 1.0f);
+            static ImVec4 color = ImColor(0.8f, 0.5f, 1.0f, 1.0f);
             ImGui::ColorButton(color);
             if (ImGui::BeginPopupContextItem("color context menu"))
             {
@@ -1278,6 +1286,9 @@ void ImGui::ShowTestWindow(bool* p_opened)
             {
                 ImGui::Text("All those beautiful files will be deleted.\nThis operation cannot be undone!\n\n");
                 ImGui::Separator();
+
+                //static int dummy_i = 0;
+                //ImGui::Combo("Combo", &dummy_i, "Delete\0Delete harder\0");
 
                 static bool dont_ask_me_next_time = false;
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
@@ -1320,7 +1331,22 @@ void ImGui::ShowTestWindow(bool* p_opened)
         // Basic columns
         if (ImGui::TreeNode("Basic"))
         {
-            ImGui::Columns(4, "mycolumns");
+            ImGui::Text("Without border:");
+            ImGui::Columns(3, "mycolumns3", false);  // 3-ways, no border
+            ImGui::Separator();
+            for (int n = 0; n < 14; n++)
+            {
+                char label[32];
+                sprintf(label, "Item %d", n);
+                if (ImGui::Selectable(label)) {}
+                //if (ImGui::Button(label, ImVec2(-1,0))) {}
+                ImGui::NextColumn();
+            }
+            ImGui::Columns(1);
+            ImGui::Separator();
+
+            ImGui::Text("With border:");
+            ImGui::Columns(4, "mycolumns"); // 4-ways, with border
             ImGui::Separator();
             ImGui::Text("ID"); ImGui::NextColumn();
             ImGui::Text("Name"); ImGui::NextColumn();
@@ -1437,9 +1463,9 @@ void ImGui::ShowTestWindow(bool* p_opened)
             ImGui::TreePop();
         }
 
-        bool node_opened = ImGui::TreeNode("Tree within single cell");
+        bool node_open = ImGui::TreeNode("Tree within single cell");
         ImGui::SameLine(); ShowHelpMarker("NB: Tree node must be poped before ending the cell.\nThere's no storage of state per-cell.");
-        if (node_opened)
+        if (node_open)
         {
             ImGui::Columns(2, "tree items");
             ImGui::Separator();
@@ -1586,9 +1612,11 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
 {
     ImGuiStyle& style = ImGui::GetStyle();
 
-    const ImGuiStyle def; // Default style
+    // You can pass in a reference ImGuiStyle structure to compare to, revert to and save to (else it compares to the default style)
+    const ImGuiStyle default_style; // Default style
     if (ImGui::Button("Revert Style"))
-        style = ref ? *ref : def;
+        style = ref ? *ref : default_style;
+
     if (ref)
     {
         ImGui::SameLine();
@@ -1610,7 +1638,7 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("Sizes"))
+    if (ImGui::TreeNode("Settings"))
     {
         ImGui::SliderFloat2("WindowPadding", (float*)&style.WindowPadding, 0.0f, 20.0f, "%.0f");
         ImGui::SliderFloat("WindowRounding", &style.WindowRounding, 0.0f, 16.0f, "%.0f");
@@ -1625,6 +1653,9 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
         ImGui::SliderFloat("ScrollbarRounding", &style.ScrollbarRounding, 0.0f, 16.0f, "%.0f");
         ImGui::SliderFloat("GrabMinSize", &style.GrabMinSize, 1.0f, 20.0f, "%.0f");
         ImGui::SliderFloat("GrabRounding", &style.GrabRounding, 0.0f, 16.0f, "%.0f");
+        ImGui::Text("Alignment");
+        ImGui::SliderFloat2("WindowTitleAlign", (float*)&style.WindowTitleAlign, 0.0f, 1.0f, "%.2f");
+        ImGui::SliderFloat2("ButtonTextAlign", (float*)&style.ButtonTextAlign, 0.0f, 1.0f, "%.2f"); ImGui::SameLine(); ShowHelpMarker("Alignment applies when a button is larger than its text content.");
         ImGui::TreePop();
     }
 
@@ -1643,12 +1674,12 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
             {
                 const ImVec4& col = style.Colors[i];
                 const char* name = ImGui::GetStyleColName(i);
-                if (!output_only_modified || memcmp(&col, (ref ? &ref->Colors[i] : &def.Colors[i]), sizeof(ImVec4)) != 0)
+                if (!output_only_modified || memcmp(&col, (ref ? &ref->Colors[i] : &default_style.Colors[i]), sizeof(ImVec4)) != 0)
                     ImGui::LogText("style.Colors[ImGuiCol_%s]%*s= ImVec4(%.2ff, %.2ff, %.2ff, %.2ff);" IM_NEWLINE, name, 22 - (int)strlen(name), "", col.x, col.y, col.z, col.w);
             }
             ImGui::LogFinish();
         }
-        ImGui::SameLine(); ImGui::PushItemWidth(120); ImGui::Combo("##output_type", &output_dest, "To Clipboard\0To TTY"); ImGui::PopItemWidth();
+        ImGui::SameLine(); ImGui::PushItemWidth(120); ImGui::Combo("##output_type", &output_dest, "To Clipboard\0To TTY\0"); ImGui::PopItemWidth();
         ImGui::SameLine(); ImGui::Checkbox("Only Modified Fields", &output_only_modified);
 
         static ImGuiColorEditMode edit_mode = ImGuiColorEditMode_RGB;
@@ -1672,9 +1703,9 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
                 continue;
             ImGui::PushID(i);
             ImGui::ColorEdit4(name, (float*)&style.Colors[i], true);
-            if (memcmp(&style.Colors[i], (ref ? &ref->Colors[i] : &def.Colors[i]), sizeof(ImVec4)) != 0)
+            if (memcmp(&style.Colors[i], (ref ? &ref->Colors[i] : &default_style.Colors[i]), sizeof(ImVec4)) != 0)
             {
-                ImGui::SameLine(); if (ImGui::Button("Revert")) style.Colors[i] = ref ? ref->Colors[i] : def.Colors[i];
+                ImGui::SameLine(); if (ImGui::Button("Revert")) style.Colors[i] = ref ? ref->Colors[i] : default_style.Colors[i];
                 if (ref) { ImGui::SameLine(); if (ImGui::Button("Save")) ref->Colors[i] = style.Colors[i]; }
             }
             ImGui::PopID();
@@ -1682,6 +1713,89 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
         ImGui::PopItemWidth();
         ImGui::EndChild();
 
+        ImGui::TreePop();
+    }
+
+    if (ImGui::TreeNode("Fonts", "Fonts (%d)", ImGui::GetIO().Fonts->Fonts.Size))
+    {
+        ImGui::SameLine(); ShowHelpMarker("Tip: Load fonts with io.Fonts->AddFontFromFileTTF()\nbefore calling io.Fonts->GetTex* functions.");
+        ImFontAtlas* atlas = ImGui::GetIO().Fonts;
+        if (ImGui::TreeNode("Atlas texture", "Atlas texture (%dx%d pixels)", atlas->TexWidth, atlas->TexHeight))
+        {
+            ImGui::Image(atlas->TexID, ImVec2((float)atlas->TexWidth, (float)atlas->TexHeight), ImVec2(0,0), ImVec2(1,1), ImColor(255,255,255,255), ImColor(255,255,255,128));
+            ImGui::TreePop();
+        }
+        ImGui::PushItemWidth(100);
+        for (int i = 0; i < atlas->Fonts.Size; i++)
+        {
+            ImFont* font = atlas->Fonts[i];
+            ImGui::BulletText("Font %d: \'%s\', %.2f px, %d glyphs", i, font->ConfigData ? font->ConfigData[0].Name : "", font->FontSize, font->Glyphs.Size);
+            ImGui::TreePush((void*)(intptr_t)i);
+            if (i > 0) { ImGui::SameLine(); if (ImGui::SmallButton("Set as default")) { atlas->Fonts[i] = atlas->Fonts[0]; atlas->Fonts[0] = font; } }
+            ImGui::PushFont(font);
+            ImGui::Text("The quick brown fox jumps over the lazy dog");
+            ImGui::PopFont();
+            if (ImGui::TreeNode("Details"))
+            {
+                ImGui::DragFloat("Font scale", &font->Scale, 0.005f, 0.3f, 2.0f, "%.1f");   // Scale only this font
+                ImGui::SameLine(); ShowHelpMarker("Note than the default embedded font is NOT meant to be scaled.\n\nFont are currently rendered into bitmaps at a given size at the time of building the atlas. You may oversample them to get some flexibility with scaling. You can also render at multiple sizes and select which one to use at runtime.\n\n(Glimmer of hope: the atlas system should hopefully be rewritten in the future to make scaling more natural and automatic.)");
+                ImGui::Text("Ascent: %f, Descent: %f, Height: %f", font->Ascent, font->Descent, font->Ascent - font->Descent);
+                ImGui::Text("Fallback character: '%c' (%d)", font->FallbackChar, font->FallbackChar);
+                for (int config_i = 0; config_i < font->ConfigDataCount; config_i++)
+                {
+                    ImFontConfig* cfg = &font->ConfigData[config_i];
+                    ImGui::BulletText("Input %d: \'%s\'\nOversample: (%d,%d), PixelSnapH: %d", config_i, cfg->Name, cfg->OversampleH, cfg->OversampleV, cfg->PixelSnapH);
+                }
+                if (ImGui::TreeNode("Glyphs", "Glyphs (%d)", font->Glyphs.Size))
+                {
+                    // Display all glyphs of the fonts in separate pages of 256 characters
+                    const ImFont::Glyph* glyph_fallback = font->FallbackGlyph; // Forcefully/dodgily make FindGlyph() return NULL on fallback, which isn't the default behavior.
+                    font->FallbackGlyph = NULL;
+                    for (int base = 0; base < 0x10000; base += 256)
+                    {
+                        int count = 0;
+                        for (int n = 0; n < 256; n++)
+                            count += font->FindGlyph((ImWchar)(base + n)) ? 1 : 0;
+                        if (count > 0 && ImGui::TreeNode((void*)(intptr_t)base, "U+%04X..U+%04X (%d %s)", base, base+255, count, count > 1 ? "glyphs" : "glyph"))
+                        {
+                            float cell_spacing = style.ItemSpacing.y;
+                            ImVec2 cell_size(font->FontSize * 1, font->FontSize * 1);
+                            ImVec2 base_pos = ImGui::GetCursorScreenPos();
+                            ImDrawList* draw_list = ImGui::GetWindowDrawList();
+                            for (int n = 0; n < 256; n++)
+                            {
+                                ImVec2 cell_p1(base_pos.x + (n % 16) * (cell_size.x + cell_spacing), base_pos.y + (n / 16) * (cell_size.y + cell_spacing));
+                                ImVec2 cell_p2(cell_p1.x + cell_size.x, cell_p1.y + cell_size.y);
+                                const ImFont::Glyph* glyph = font->FindGlyph((ImWchar)(base+n));;
+                                draw_list->AddRect(cell_p1, cell_p2, glyph ? IM_COL32(255,255,255,100) : IM_COL32(255,255,255,50));
+                                font->RenderChar(draw_list, cell_size.x, cell_p1, ImGui::GetColorU32(ImGuiCol_Text), (ImWchar)(base+n)); // We use ImFont::RenderChar as a shortcut because we don't have UTF-8 conversion functions available to generate a string.
+                                if (glyph && ImGui::IsMouseHoveringRect(cell_p1, cell_p2))
+                                {
+                                    ImGui::BeginTooltip();
+                                    ImGui::Text("Codepoint: U+%04X", base+n);
+                                    ImGui::Separator();
+                                    ImGui::Text("XAdvance+1: %.1f", glyph->XAdvance);
+                                    ImGui::Text("Pos: (%.2f,%.2f)->(%.2f,%.2f)", glyph->X0, glyph->Y0, glyph->X1, glyph->Y1);
+                                    ImGui::Text("UV: (%.3f,%.3f)->(%.3f,%.3f)", glyph->U0, glyph->V0, glyph->U1, glyph->V1);
+                                    ImGui::EndTooltip();
+                                }
+                            }
+                            ImGui::Dummy(ImVec2((cell_size.x + cell_spacing) * 16, (cell_size.y + cell_spacing) * 16));
+                            ImGui::TreePop();
+                        }
+                    }
+                    font->FallbackGlyph = glyph_fallback;
+                    ImGui::TreePop();
+                }
+                ImGui::TreePop();
+            }
+            ImGui::TreePop();
+        }
+        static float window_scale = 1.0f;
+        ImGui::DragFloat("this window scale", &window_scale, 0.005f, 0.3f, 2.0f, "%.1f");              // scale only this window
+        ImGui::DragFloat("global scale", &ImGui::GetIO().FontGlobalScale, 0.005f, 0.3f, 2.0f, "%.1f"); // scale everything
+        ImGui::PopItemWidth();
+        ImGui::SetWindowFontScale(window_scale);
         ImGui::TreePop();
     }
 
@@ -1766,9 +1880,9 @@ static void ShowExampleMenuFile()
     if (ImGui::MenuItem("Quit", "Alt+F4")) {}
 }
 
-static void ShowExampleAppAutoResize(bool* opened)
+static void ShowExampleAppAutoResize(bool* p_open)
 {
-    if (!ImGui::Begin("Example: Auto-resizing window", opened, ImGuiWindowFlags_AlwaysAutoResize))
+    if (!ImGui::Begin("Example: Auto-resizing window", p_open, ImGuiWindowFlags_AlwaysAutoResize))
     {
         ImGui::End();
         return;
@@ -1782,10 +1896,47 @@ static void ShowExampleAppAutoResize(bool* opened)
     ImGui::End();
 }
 
-static void ShowExampleAppFixedOverlay(bool* opened)
+static void ShowExampleAppConstrainedResize(bool* p_open)
+{
+    struct CustomConstraints // Helper functions to demonstrate programmatic constraints
+    {
+        static void Square(ImGuiSizeConstraintCallbackData* data) { data->DesiredSize = ImVec2(IM_MAX(data->DesiredSize.x, data->DesiredSize.y), IM_MAX(data->DesiredSize.x, data->DesiredSize.y)); }
+        static void Step(ImGuiSizeConstraintCallbackData* data)   { float step = (float)(int)(intptr_t)data->UserData; data->DesiredSize = ImVec2((int)(data->DesiredSize.x / step + 0.5f) * step, (int)(data->DesiredSize.y / step + 0.5f) * step); }
+    };
+
+    static int type = 0;
+    if (type == 0) ImGui::SetNextWindowSizeConstraints(ImVec2(-1, 0),    ImVec2(-1, FLT_MAX));      // Vertical only
+    if (type == 1) ImGui::SetNextWindowSizeConstraints(ImVec2(0, -1),    ImVec2(FLT_MAX, -1));      // Horizontal only
+    if (type == 2) ImGui::SetNextWindowSizeConstraints(ImVec2(100, 100), ImVec2(FLT_MAX, FLT_MAX)); // Width > 100, Height > 100
+    if (type == 3) ImGui::SetNextWindowSizeConstraints(ImVec2(300, 0),   ImVec2(400, FLT_MAX));     // Width 300-400
+    if (type == 4) ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0),     ImVec2(FLT_MAX, FLT_MAX), CustomConstraints::Square);          // Always Square
+    if (type == 5) ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0),     ImVec2(FLT_MAX, FLT_MAX), CustomConstraints::Step, (void*)100);// Fixed Step
+
+    if (ImGui::Begin("Example: Constrained Resize", p_open))
+    {
+        const char* desc[] = 
+        {
+            "Resize vertical only",
+            "Resize horizontal only",
+            "Width > 100, Height > 100",
+            "Width 300-400",
+            "Custom: Always Square",
+            "Custom: Fixed Steps (100)",
+        };
+        ImGui::Combo("Constraint", &type, desc, IM_ARRAYSIZE(desc)); 
+        if (ImGui::Button("200x200")) ImGui::SetWindowSize(ImVec2(200,200)); ImGui::SameLine();
+        if (ImGui::Button("500x500")) ImGui::SetWindowSize(ImVec2(500,500)); ImGui::SameLine();
+        if (ImGui::Button("800x200")) ImGui::SetWindowSize(ImVec2(800,200));
+        for (int i = 0; i < 10; i++) 
+            ImGui::Text("Hello, sailor! Making this line long enough for the example.");
+    }
+    ImGui::End();
+}
+
+static void ShowExampleAppFixedOverlay(bool* p_open)
 {
     ImGui::SetNextWindowPos(ImVec2(10,10));
-    if (!ImGui::Begin("Example: Fixed Overlay", opened, ImVec2(0,0), 0.3f, ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoSavedSettings))
+    if (!ImGui::Begin("Example: Fixed Overlay", p_open, ImVec2(0,0), 0.3f, ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoSavedSettings))
     {
         ImGui::End();
         return;
@@ -1796,10 +1947,8 @@ static void ShowExampleAppFixedOverlay(bool* opened)
     ImGui::End();
 }
 
-static void ShowExampleAppManipulatingWindowTitle(bool* opened)
+static void ShowExampleAppManipulatingWindowTitle(bool*)
 {
-    (void)opened;
-
     // By default, Windows are uniquely identified by their title.
     // You can use the "##" and "###" markers to manipulate the display/ID. Read FAQ at the top of this file!
 
@@ -1823,10 +1972,10 @@ static void ShowExampleAppManipulatingWindowTitle(bool* opened)
     ImGui::End();
 }
 
-static void ShowExampleAppCustomRendering(bool* opened)
+static void ShowExampleAppCustomRendering(bool* p_open)
 {
     ImGui::SetNextWindowSize(ImVec2(350,560), ImGuiSetCond_FirstUseEver);
-    if (!ImGui::Begin("Example: Custom rendering", opened))
+    if (!ImGui::Begin("Example: Custom rendering", p_open))
     {
         ImGui::End();
         return;
@@ -1975,10 +2124,10 @@ struct ExampleAppConsole
         ScrollToBottom = true;
     }
 
-    void    Draw(const char* title, bool* opened)
+    void    Draw(const char* title, bool* p_open)
     {
         ImGui::SetNextWindowSize(ImVec2(520,600), ImGuiSetCond_FirstUseEver);
-        if (!ImGui::Begin(title, opened))
+        if (!ImGui::Begin(title, p_open))
         {
             ImGui::End();
             return;
@@ -1991,7 +2140,8 @@ struct ExampleAppConsole
 
         if (ImGui::SmallButton("Add Dummy Text")) { AddLog("%d some text", Items.Size); AddLog("some more text"); AddLog("display very important message here!"); } ImGui::SameLine();
         if (ImGui::SmallButton("Add Dummy Error")) AddLog("[error] something went wrong"); ImGui::SameLine();
-        if (ImGui::SmallButton("Clear")) ClearLog();
+        if (ImGui::SmallButton("Clear")) ClearLog(); ImGui::SameLine();
+        if (ImGui::SmallButton("Scroll to bottom")) ScrollToBottom = true;
         //static float t = 0.0f; if (ImGui::GetTime() - t > 0.02f) { t = ImGui::GetTime(); AddLog("Spam %f", t); }
 
         ImGui::Separator();
@@ -2002,24 +2152,33 @@ struct ExampleAppConsole
         ImGui::PopStyleVar();
         ImGui::Separator();
 
-        // Display every line as a separate entry so we can change their color or add custom widgets. If you only want raw text you can use ImGui::TextUnformatted(log.begin(), log.end());
-        // NB- if you have thousands of entries this approach may be too inefficient. You can seek and display only the lines that are visible - CalcListClipping() is a helper to compute this information.
-        // If your items are of variable size you may want to implement code similar to what CalcListClipping() does. Or split your data into fixed height items to allow random-seeking into your list.
         ImGui::BeginChild("ScrollingRegion", ImVec2(0,-ImGui::GetItemsLineHeightWithSpacing()), false, ImGuiWindowFlags_HorizontalScrollbar);
         if (ImGui::BeginPopupContextWindow())
         {
             if (ImGui::Selectable("Clear")) ClearLog();
             ImGui::EndPopup();
         }
+
+        // Display every line as a separate entry so we can change their color or add custom widgets. If you only want raw text you can use ImGui::TextUnformatted(log.begin(), log.end());
+        // NB- if you have thousands of entries this approach may be too inefficient and may require user-side clipping to only process visible items.
+        // You can seek and display only the lines that are visible using the ImGuiListClipper helper, if your elements are evenly spaced and you have cheap random access to the elements.
+        // To use the clipper we could replace the 'for (int i = 0; i < Items.Size; i++)' loop with:
+        //     ImGuiListClipper clipper(Items.Size);
+        //     while (clipper.Step())
+        //         for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
+        // However take note that you can not use this code as is if a filter is active because it breaks the 'cheap random-access' property. We would need random-access on the post-filtered list.
+        // A typical application wanting coarse clipping and filtering may want to pre-compute an array of indices that passed the filtering test, recomputing this array when user changes the filter,
+        // and appending newly elements as they are inserted. This is left as a task to the user until we can manage to improve this example code!
+        // If your items are of variable size you may want to implement code similar to what ImGuiListClipper does. Or split your data into fixed height items to allow random-seeking into your list.
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4,1)); // Tighten spacing
         for (int i = 0; i < Items.Size; i++)
         {
             const char* item = Items[i];
             if (!filter.PassFilter(item))
                 continue;
-            ImVec4 col = ImColor(255,255,255); // A better implementation may store a type per-item. For the sample let's just parse the text.
-            if (strstr(item, "[error]")) col = ImColor(255,100,100);
-            else if (strncmp(item, "# ", 2) == 0) col = ImColor(255,200,150);
+            ImVec4 col = ImVec4(1.0f,1.0f,1.0f,1.0f); // A better implementation may store a type per-item. For the sample let's just parse the text.
+            if (strstr(item, "[error]")) col = ImColor(1.0f,0.4f,0.4f,1.0f);
+            else if (strncmp(item, "# ", 2) == 0) col = ImColor(1.0f,0.78f,0.58f,1.0f);
             ImGui::PushStyleColor(ImGuiCol_Text, col);
             ImGui::TextUnformatted(item);
             ImGui::PopStyleColor();
@@ -2076,7 +2235,8 @@ struct ExampleAppConsole
         }
         else if (Stricmp(command_line, "HISTORY") == 0)
         {
-            for (int i = History.Size >= 10 ? History.Size - 10 : 0; i < History.Size; i++)
+            int first = History.Size - 10;
+            for (int i = first > 0 ? first : 0; i < History.Size; i++)
                 AddLog("%3d: %s\n", i, History[i]);
         }
         else
@@ -2182,7 +2342,7 @@ struct ExampleAppConsole
                 // A better implementation would preserve the data on the current input line along with cursor position.
                 if (prev_history_pos != HistoryPos)
                 {
-                    data->CursorPos = data->SelectionStart = data->SelectionEnd = data->BufTextLen = (int)snprintf(data->Buf, data->BufSize, "%s", (HistoryPos >= 0) ? History[HistoryPos] : "");
+                    data->CursorPos = data->SelectionStart = data->SelectionEnd = data->BufTextLen = (int)snprintf(data->Buf, (size_t)data->BufSize, "%s", (HistoryPos >= 0) ? History[HistoryPos] : "");
                     data->BufDirty = true;
                 }
             }
@@ -2191,10 +2351,10 @@ struct ExampleAppConsole
     }
 };
 
-static void ShowExampleAppConsole(bool* opened)
+static void ShowExampleAppConsole(bool* p_open)
 {
     static ExampleAppConsole console;
-    console.Draw("Example: Console", opened);
+    console.Draw("Example: Console", p_open);
 }
 
 // Usage:
@@ -2223,10 +2383,10 @@ struct ExampleAppLog
         ScrollToBottom = true;
     }
 
-    void    Draw(const char* title, bool* p_opened = NULL)
+    void    Draw(const char* title, bool* p_open = NULL)
     {
         ImGui::SetNextWindowSize(ImVec2(500,400), ImGuiSetCond_FirstUseEver);
-        ImGui::Begin(title, p_opened);
+        ImGui::Begin(title, p_open);
         if (ImGui::Button("Clear")) Clear();
         ImGui::SameLine();
         bool copy = ImGui::Button("Copy");
@@ -2261,7 +2421,7 @@ struct ExampleAppLog
     }
 };
 
-static void ShowExampleAppLog(bool* opened)
+static void ShowExampleAppLog(bool* p_open)
 {
     static ExampleAppLog log;
 
@@ -2275,19 +2435,19 @@ static void ShowExampleAppLog(bool* opened)
         last_time = time;
     }
 
-    log.Draw("Example: Log", opened);
+    log.Draw("Example: Log", p_open);
 }
 
-static void ShowExampleAppLayout(bool* opened)
+static void ShowExampleAppLayout(bool* p_open)
 {
     ImGui::SetNextWindowSize(ImVec2(500, 440), ImGuiSetCond_FirstUseEver);
-    if (ImGui::Begin("Example: Layout", opened, ImGuiWindowFlags_MenuBar))
+    if (ImGui::Begin("Example: Layout", p_open, ImGuiWindowFlags_MenuBar))
     {
         if (ImGui::BeginMenuBar())
         {
             if (ImGui::BeginMenu("File"))
             {
-                if (ImGui::MenuItem("Close")) *opened = false;
+                if (ImGui::MenuItem("Close")) *p_open = false;
                 ImGui::EndMenu();
             }
             ImGui::EndMenuBar();
@@ -2323,10 +2483,10 @@ static void ShowExampleAppLayout(bool* opened)
     ImGui::End();
 }
 
-static void ShowExampleAppPropertyEditor(bool* p_opened)
+static void ShowExampleAppPropertyEditor(bool* p_open)
 {
     ImGui::SetNextWindowSize(ImVec2(430,450), ImGuiSetCond_FirstUseEver);
-    if (!ImGui::Begin("Example: Property editor", p_opened))
+    if (!ImGui::Begin("Example: Property editor", p_open))
     {
         ImGui::End();
         return;
@@ -2340,16 +2500,16 @@ static void ShowExampleAppPropertyEditor(bool* p_opened)
 
     struct funcs
     {
-        static void ShowDummyObject(const char* prefix, ImU32 uid)
+        static void ShowDummyObject(const char* prefix, int uid)
         {
             ImGui::PushID(uid);                      // Use object uid as identifier. Most commonly you could also use the object pointer as a base ID.
             ImGui::AlignFirstTextHeightToWidgets();  // Text and Tree nodes are less high than regular widgets, here we add vertical spacing to make the tree lines equal high.
-            bool is_opened = ImGui::TreeNode("Object", "%s_%u", prefix, uid);
+            bool node_open = ImGui::TreeNode("Object", "%s_%u", prefix, uid);
             ImGui::NextColumn();
             ImGui::AlignFirstTextHeightToWidgets();
             ImGui::Text("my sailor is rich");
             ImGui::NextColumn();
-            if (is_opened)
+            if (node_open)
             {
                 static float dummy_members[8] = { 0.0f,0.0f,1.0f,3.1416f,100.0f,999.0f };
                 for (int i = 0; i < 8; i++)
@@ -2357,7 +2517,7 @@ static void ShowExampleAppPropertyEditor(bool* p_opened)
                     ImGui::PushID(i); // Use field index as identifier.
                     if (i < 2)
                     {
-                        ShowDummyObject("Child", ImGui::GetID("foo"));
+                        ShowDummyObject("Child", 424242);
                     }
                     else
                     {
@@ -2395,10 +2555,10 @@ static void ShowExampleAppPropertyEditor(bool* p_opened)
     ImGui::End();
 }
 
-static void ShowExampleAppLongText(bool* opened)
+static void ShowExampleAppLongText(bool* p_open)
 {
     ImGui::SetNextWindowSize(ImVec2(520,600), ImGuiSetCond_FirstUseEver);
-    if (!ImGui::Begin("Example: Long text display", opened))
+    if (!ImGui::Begin("Example: Long text display", p_open))
     {
         ImGui::End();
         return;
@@ -2429,10 +2589,10 @@ static void ShowExampleAppLongText(bool* opened)
         {
             // Multiple calls to Text(), manually coarsely clipped - demonstrate how to use the ImGuiListClipper helper.
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0,0));
-            ImGuiListClipper clipper(lines, ImGui::GetTextLineHeight());
-            for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
-                ImGui::Text("%i The quick brown fox jumps over the lazy dog\n", i);
-            clipper.End();
+            ImGuiListClipper clipper(lines);
+            while (clipper.Step())
+                for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
+                    ImGui::Text("%i The quick brown fox jumps over the lazy dog", i);
             ImGui::PopStyleVar();
             break;
         }
@@ -2440,7 +2600,7 @@ static void ShowExampleAppLongText(bool* opened)
         // Multiple calls to Text(), not clipped (slow)
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0,0));
         for (int i = 0; i < lines; i++)
-            ImGui::Text("%i The quick brown fox jumps over the lazy dog\n", i);
+            ImGui::Text("%i The quick brown fox jumps over the lazy dog", i);
         ImGui::PopStyleVar();
         break;
     }
@@ -2452,7 +2612,7 @@ static void ShowExampleAppLongText(bool* opened)
 #else
 
 void ImGui::ShowTestWindow(bool*) {}
-void ImGui::ShowUserGuide(bool*) {}
-void ImGui::ShowStyleEditor(bool*) {}
+void ImGui::ShowUserGuide() {}
+void ImGui::ShowStyleEditor(ImGuiStyle*) {}
 
 #endif

@@ -1,4 +1,4 @@
-// dear imgui, v1.49 WIP
+// dear imgui, v1.50 WIP
 // (drawing and font code)
 
 // Contains implementation for
@@ -18,9 +18,11 @@
 #include "imgui_internal.h"
 
 #include <stdio.h>      // vsnprintf, sscanf, printf
-#if !defined(alloca) && !defined(__FreeBSD__) && !defined(__DragonFly__)
+#if !defined(alloca)
 #ifdef _WIN32
 #include <malloc.h>     // alloca
+#elif (defined(__FreeBSD__) || defined(FreeBSD_kernel) || defined(__DragonFly__)) && !defined(__GLIBC__)
+#include <stdlib.h>     // alloca. FreeBSD uses stdlib.h unless GLIBC
 #else
 #include <alloca.h>     // alloca
 #endif
@@ -37,10 +39,11 @@
 #pragma clang diagnostic ignored "-Wfloat-equal"            // warning : comparing floating point with == or != is unsafe   // storing and comparing against same constants ok.
 #pragma clang diagnostic ignored "-Wglobal-constructors"    // warning : declaration requires a global destructor           // similar to above, not sure what the exact difference it.
 #pragma clang diagnostic ignored "-Wsign-conversion"        // warning : implicit conversion changes signedness             //
-//#pragma clang diagnostic ignored "-Wreserved-id-macro"    // warning : macro name is a reserved identifier                //
-#endif
-#ifdef __GNUC__
+#pragma clang diagnostic ignored "-Wreserved-id-macro"      // warning : macro name is a reserved identifier                //
+#elif defined(__GNUC__)
 #pragma GCC diagnostic ignored "-Wunused-function"          // warning: 'xxxx' defined but not used
+#pragma GCC diagnostic ignored "-Wdouble-promotion"         // warning: implicit conversion from 'float' to 'double' when passing argument to function
+#pragma GCC diagnostic ignored "-Wconversion"               // warning: conversion to 'xxxx' from 'xxxx' may alter its value
 #endif
 
 //-------------------------------------------------------------------------
@@ -58,7 +61,7 @@ namespace IMGUI_STB_NAMESPACE
 
 #ifdef _MSC_VER
 #pragma warning (push)
-#pragma warning (disable: 4456) // declaration of 'xx' hides previous local declaration
+#pragma warning (disable: 4456)                             // declaration of 'xx' hides previous local declaration
 #endif
 
 #ifdef __clang__
@@ -66,6 +69,11 @@ namespace IMGUI_STB_NAMESPACE
 #pragma clang diagnostic ignored "-Wold-style-cast"         // warning : use of old-style cast                              // yes, they are more terse.
 #pragma clang diagnostic ignored "-Wunused-function"
 #pragma clang diagnostic ignored "-Wmissing-prototypes"
+#endif
+
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"              // warning: comparison is always true due to limited range of data type [-Wtype-limits]
 #endif
 
 #define STBRP_ASSERT(x)    IM_ASSERT(x)
@@ -85,6 +93,10 @@ namespace IMGUI_STB_NAMESPACE
 #define STBTT_DEF extern
 #endif
 #include "stb_truetype.h"
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 #ifdef __clang__
 #pragma clang diagnostic pop
@@ -187,7 +199,7 @@ void ImDrawList::UpdateClipRect()
 
     // Try to merge with previous command if it matches, else use current command
     ImDrawCmd* prev_cmd = CmdBuffer.Size > 1 ? curr_cmd - 1 : NULL;
-    if (prev_cmd && memcmp(&prev_cmd->ClipRect, &curr_clip_rect, sizeof(ImVec4)) == 0 && prev_cmd->TextureId == GetCurrentTextureId() && prev_cmd->UserCallback == NULL)
+    if (curr_cmd->ElemCount == 0 && prev_cmd && memcmp(&prev_cmd->ClipRect, &curr_clip_rect, sizeof(ImVec4)) == 0 && prev_cmd->TextureId == GetCurrentTextureId() && prev_cmd->UserCallback == NULL)
         CmdBuffer.pop_back();
     else
         curr_cmd->ClipRect = curr_clip_rect;
@@ -237,7 +249,7 @@ void ImDrawList::PushClipRect(ImVec2 cr_min, ImVec2 cr_max, bool intersect_with_
 void ImDrawList::PushClipRectFullScreen()
 {
     PushClipRect(ImVec2(GNullClipRect.x, GNullClipRect.y), ImVec2(GNullClipRect.z, GNullClipRect.w));
-    //PushClipRect(GetVisibleRect());   // FIXME-OPT: This would be more correct but we're not supposed to access ImGuiState from here?
+    //PushClipRect(GetVisibleRect());   // FIXME-OPT: This would be more correct but we're not supposed to access ImGuiContext from here?
 }
 
 void ImDrawList::PopClipRect()
@@ -1133,7 +1145,8 @@ ImFont* ImFontAtlas::AddFont(const ImFontConfig* font_cfg)
 
     ConfigData.push_back(*font_cfg);
     ImFontConfig& new_font_cfg = ConfigData.back();
-    new_font_cfg.DstFont = Fonts.back();
+	if (!new_font_cfg.DstFont)
+	    new_font_cfg.DstFont = Fonts.back();
     if (!new_font_cfg.FontDataOwnedByAtlas)
     {
         new_font_cfg.FontData = ImGui::MemAlloc(new_font_cfg.FontDataSize);
@@ -1143,7 +1156,7 @@ ImFont* ImFontAtlas::AddFont(const ImFontConfig* font_cfg)
 
     // Invalidate texture
     ClearTexData();
-    return Fonts.back();
+    return new_font_cfg.DstFont;
 }
 
 // Default font TTF is compressed with stb_compress then base85 encoded (see extra_fonts/binary_to_compressed_c.cpp for encoder)
@@ -1641,6 +1654,17 @@ const ImWchar*  ImFontAtlas::GetGlyphRangesCyrillic()
     return &ranges[0];
 }
 
+const ImWchar*  ImFontAtlas::GetGlyphRangesThai()
+{
+    static const ImWchar ranges[] =
+    {
+        0x0020, 0x00FF, // Basic Latin
+        0x0E00, 0x0E7F, // Thai
+        0,
+    };
+    return &ranges[0];
+}
+
 //-----------------------------------------------------------------------------
 // ImFont
 //-----------------------------------------------------------------------------
@@ -1658,7 +1682,7 @@ ImFont::~ImFont()
     // If you want to delete fonts you need to do it between Render() and NewFrame().
     // FIXME-CLEANUP
     /*
-    ImGuiState& g = *GImGui;
+    ImGuiContext& g = *GImGui;
     if (g.Font == this)
         g.Font = NULL;
     */
@@ -1686,7 +1710,7 @@ void ImFont::BuildLookupTable()
     for (int i = 0; i != Glyphs.Size; i++)
         max_codepoint = ImMax(max_codepoint, (int)Glyphs[i].Codepoint);
 
-    IM_ASSERT(Glyphs.Size < 32*1024);
+    IM_ASSERT(Glyphs.Size < 0xFFFF); // -1 is reserved
     IndexXAdvance.clear();
     IndexLookup.clear();
     GrowIndex(max_codepoint + 1);
@@ -1694,7 +1718,7 @@ void ImFont::BuildLookupTable()
     {
         int codepoint = (int)Glyphs[i].Codepoint;
         IndexXAdvance[codepoint] = Glyphs[i].XAdvance;
-        IndexLookup[codepoint] = (short)i;
+        IndexLookup[codepoint] = (unsigned short)i;
     }
 
     // Create a glyph to handle TAB
@@ -1708,7 +1732,7 @@ void ImFont::BuildLookupTable()
         tab_glyph.Codepoint = '\t';
         tab_glyph.XAdvance *= 4;
         IndexXAdvance[(int)tab_glyph.Codepoint] = (float)tab_glyph.XAdvance;
-        IndexLookup[(int)tab_glyph.Codepoint] = (short)(Glyphs.Size-1);
+        IndexLookup[(int)tab_glyph.Codepoint] = (unsigned short)(Glyphs.Size-1);
     }
 
     FallbackGlyph = NULL;
@@ -1736,7 +1760,7 @@ void ImFont::GrowIndex(int new_size)
     for (int i = old_size; i < new_size; i++)
     {
         IndexXAdvance[i] = -1.0f;
-        IndexLookup[i] = (short)-1;
+        IndexLookup[i] = (unsigned short)-1;
     }
 }
 
@@ -1745,13 +1769,13 @@ void ImFont::AddRemapChar(ImWchar dst, ImWchar src, bool overwrite_dst)
     IM_ASSERT(IndexLookup.Size > 0);    // Currently this can only be called AFTER the font has been built, aka after calling ImFontAtlas::GetTexDataAs*() function.
     int index_size = IndexLookup.Size;
 
-    if (dst < index_size && IndexLookup.Data[dst] == -1 && !overwrite_dst) // 'dst' already exists
+    if (dst < index_size && IndexLookup.Data[dst] == (unsigned short)-1 && !overwrite_dst) // 'dst' already exists
         return;
     if (src >= index_size && dst >= index_size) // both 'dst' and 'src' don't exist -> no-op
         return;
 
     GrowIndex(dst + 1);
-    IndexLookup[dst] = (src < index_size) ? IndexLookup.Data[src] : -1;
+    IndexLookup[dst] = (src < index_size) ? IndexLookup.Data[src] : (unsigned short)-1;
     IndexXAdvance[dst] = (src < index_size) ? IndexXAdvance.Data[src] : 1.0f;
 }
 
@@ -1759,8 +1783,8 @@ const ImFont::Glyph* ImFont::FindGlyph(unsigned short c) const
 {
     if (c < IndexLookup.Size)
     {
-        const short i = IndexLookup[c];
-        if (i != -1)
+        const unsigned short i = IndexLookup[c];
+        if (i != (unsigned short)-1)
             return &Glyphs.Data[i];
     }
     return FallbackGlyph;
@@ -1819,7 +1843,7 @@ const char* ImFont::CalcWordWrapPositionA(float scale, const char* text, const c
             }
         }
 
-        const float char_width = ((int)c < IndexXAdvance.Size) ? IndexXAdvance[(int)c] * scale : FallbackXAdvance;
+        const float char_width = ((int)c < IndexXAdvance.Size ? IndexXAdvance[(int)c] : FallbackXAdvance) * scale;
         if (ImCharIsSpace(c))
         {
             if (inside_word)
@@ -2302,7 +2326,7 @@ static const char proggy_clean_ttf_compressed_data_base85[11980+1] =
     "%(?A%R$f<->Zts'^kn=-^@c4%-pY6qI%J%1IGxfLU9CP8cbPlXv);C=b),<2mOvP8up,UVf3839acAWAW-W?#ao/^#%KYo8fRULNd2.>%m]UK:n%r$'sw]J;5pAoO_#2mO3n,'=H5(et"
     "Hg*`+RLgv>=4U8guD$I%D:W>-r5V*%j*W:Kvej.Lp$<M-SGZ':+Q_k+uvOSLiEo(<aD/K<CCc`'Lx>'?;++O'>()jLR-^u68PHm8ZFWe+ej8h:9r6L*0//c&iH&R8pRbA#Kjm%upV1g:"
     "a_#Ur7FuA#(tRh#.Y5K+@?3<-8m0$PEn;J:rh6?I6uG<-`wMU'ircp0LaE_OtlMb&1#6T.#FDKu#1Lw%u%+GM+X'e?YLfjM[VO0MbuFp7;>Q&#WIo)0@F%q7c#4XAXN-U&VB<HFF*qL("
-    "$/V,;(kXZejWO`<[5??ewY(*9=%wDc;,u<'9t3W-(H1th3+G]ucQ]kLs7df($/*JL]@*t7Bu_G3_7mp7<iaQjO@.kLg;x3B0lqp7Hf,^Ze7-##@/c58Mo(3;knp0%)A7?-W+eI'o8)b<"
+    "$/V,;(kXZejWO`<[5?\?ewY(*9=%wDc;,u<'9t3W-(H1th3+G]ucQ]kLs7df($/*JL]@*t7Bu_G3_7mp7<iaQjO@.kLg;x3B0lqp7Hf,^Ze7-##@/c58Mo(3;knp0%)A7?-W+eI'o8)b<"
     "nKnw'Ho8C=Y>pqB>0ie&jhZ[?iLR@@_AvA-iQC(=ksRZRVp7`.=+NpBC%rh&3]R:8XDmE5^V8O(x<<aG/1N$#FX$0V5Y6x'aErI3I$7x%E`v<-BY,)%-?Psf*l?%C3.mM(=/M0:JxG'?"
     "7WhH%o'a<-80g0NBxoO(GH<dM]n.+%q@jH?f.UsJ2Ggs&4<-e47&Kl+f//9@`b+?.TeN_&B8Ss?v;^Trk;f#YvJkl&w$]>-+k?'(<S:68tq*WoDfZu';mM?8X[ma8W%*`-=;D.(nc7/;"
     ")g:T1=^J$&BRV(-lTmNB6xqB[@0*o.erM*<SWF]u2=st-*(6v>^](H.aREZSi,#1:[IXaZFOm<-ui#qUq2$##Ri;u75OK#(RtaW-K-F`S+cF]uN`-KMQ%rP/Xri.LRcB##=YL3BgM/3M"
