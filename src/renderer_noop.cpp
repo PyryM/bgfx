@@ -5,28 +5,28 @@
 
 #include "bgfx_p.h"
 
-#if BGFX_CONFIG_RENDERER_NULL
+#if BGFX_CONFIG_RENDERER_NOOP
 
 namespace bgfx { namespace noop
 {
-	struct RendererContextNULL : public RendererContextI
+	struct RendererContextNOOP : public RendererContextI
 	{
-		RendererContextNULL()
+		RendererContextNOOP()
 		{
 		}
 
-		~RendererContextNULL()
+		~RendererContextNOOP()
 		{
 		}
 
 		RendererType::Enum getRendererType() const BX_OVERRIDE
 		{
-			return RendererType::Null;
+			return RendererType::Noop;
 		}
 
 		const char* getRendererName() const BX_OVERRIDE
 		{
-			return BGFX_RENDERER_NULL_NAME;
+			return BGFX_RENDERER_NOOP_NAME;
 		}
 
 		void flip(HMD& /*_hmd*/) BX_OVERRIDE
@@ -117,15 +117,11 @@ namespace bgfx { namespace noop
 		{
 		}
 
-		void resizeTexture(TextureHandle /*_handle*/, uint16_t /*_width*/, uint16_t /*_height*/) BX_OVERRIDE
+		void resizeTexture(TextureHandle /*_handle*/, uint16_t /*_width*/, uint16_t /*_height*/, uint8_t /*_numMips*/) BX_OVERRIDE
 		{
 		}
 
 		void overrideInternal(TextureHandle /*_handle*/, uintptr_t /*_ptr*/) BX_OVERRIDE
-		{
-		}
-
-		void getInternalInfo(TextureHandle _handle, NativeTextureInfo* _info) BX_OVERRIDE
 		{
 		}
 
@@ -187,18 +183,18 @@ namespace bgfx { namespace noop
 		}
 	};
 
-	static RendererContextNULL* s_renderNULL;
+	static RendererContextNOOP* s_renderNOOP;
 
 	RendererContextI* rendererCreate()
 	{
-		s_renderNULL = BX_NEW(g_allocator, RendererContextNULL);
-		return s_renderNULL;
+		s_renderNOOP = BX_NEW(g_allocator, RendererContextNOOP);
+		return s_renderNOOP;
 	}
 
 	void rendererDestroy()
 	{
-		BX_DELETE(g_allocator, s_renderNULL);
-		s_renderNULL = NULL;
+		BX_DELETE(g_allocator, s_renderNOOP);
+		s_renderNOOP = NULL;
 	}
 } /* namespace noop */ } // namespace bgfx
 
@@ -216,4 +212,4 @@ namespace bgfx { namespace noop
 	}
 } /* namespace noop */ } // namespace bgfx
 
-#endif // BGFX_CONFIG_RENDERER_NULL
+#endif // BGFX_CONFIG_RENDERER_NOOP
