@@ -49,7 +49,7 @@ void main() {
 
 		vec4 lightPos = lightBuffer[lightIndex + LIGHT_POS_OFFSET];
 		vec4 lightColor = lightBuffer[lightIndex + LIGHT_COL_OFFSET];
-		float lightRadius = lightBuffer[lightIndex + LIGHT_RAD_OFFSET].x / 2.0;
+		float lightRadius = lightBuffer[lightIndex + LIGHT_RAD_OFFSET].x;
 
 		// Calculate the light attenuation on the pre-normalized lightDirection
 		vec3 lightDirection = lightPos.xyz - v_wpos.xyz;

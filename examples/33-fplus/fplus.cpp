@@ -119,7 +119,7 @@ class ExampleFPlus : public entry::AppI
 			//m_lightData.m_vertices[pos + 1].m_z = 0.0f; // i*0.1f;
 			//m_lightData.m_vertices[pos + 1].m_w = 0.0f;
 
-			m_lightData.m_vertices[pos + 2].m_x = 0.5f;  // radius
+			m_lightData.m_vertices[pos + 2].m_x = 0.1f;  // radius
 			pos += 3;
 		}
 
