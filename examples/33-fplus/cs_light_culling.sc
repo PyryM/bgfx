@@ -72,14 +72,8 @@ void main() {
 
 	// Step 1: Calculate the minimum and maximum depth values (from the depth buffer) for this group's tile
 	float maxDepth, minDepth;
-	vec2 text = vec2(location) / u_screenSize.xy;
-	//float depth = texture2DLod(s_depthMap, text, 0).r; // hmm not sure about this
-	//float depth = imageLoad(s_depthMap, location).r;     // do this instead?
-	//float depth = s_depthMap.SampleLevel(text, 0, 0 ).x;   // maybe this?
-	float depth = s_depthMap.Load(ivec3(location, 0)).x;
-
-	// NOTE: just store a linear depth in the first place
-	// depth = (0.5 * u_projectionMat[3][2]) / (depth + 0.5 * u_projectionMat[2][2] - 0.5);
+	float depth = imageLoad(s_depthMap, location).r;       // do this instead?
+	//float depth = s_depthMap.Load(ivec3(location, 0)).x;
 
 	// Convert depth to uint so we can do atomic min and max comparisons between the threads
 	uint depthInt = floatBitsToUint(depth); // floatBitsToUint is a builtin
@@ -98,6 +92,12 @@ void main() {
 		minDepth = uintBitsToFloat(minDepthInt);
 		maxDepth = uintBitsToFloat(maxDepthInt);
 
+		// OK, roughly the idea here is to define a bunch of planes in view space
+		// and then transform them into world space (to avoid having to multiply
+		// each light instead into view space)
+		//
+		// I'm not 100% sure why this math works, however.
+
 		// Steps based on tile sale
 		vec2 negativeStep = (2.0 * vec2(tileID)) / vec2(tileNumber);
 		vec2 positiveStep = (2.0 * vec2(tileID + ivec2(1, 1))) / vec2(tileNumber);
@@ -114,7 +114,7 @@ void main() {
 		frustumPlanes[5] = vec4(0.0, 0.0, -1.0, -maxDepth); // Far
 
 		// WEIRD: left multiplying the planes (e.g., multiplying by transpose)
-		//        this is not the correct inverse!
+		//        this is not the correct inverse! (maybe it works out anyway)
 		// TODO: just actually pass in inverse matrices?
 		// Transform the first four planes
 
@@ -124,6 +124,8 @@ void main() {
 		}
 
 		// Transform the depth planes
+		// (this at least makes some sense, because
+		//  dot(plane, View*pos) = plane^T * View * pos = (plane^T * View) dot pos )
 		frustumPlanes[4] = mul(frustumPlanes[4], u_viewMat);
 		frustumPlanes[4] /= length(frustumPlanes[4].xyz);
 		frustumPlanes[5] = mul(frustumPlanes[5], u_viewMat);
@@ -149,7 +151,9 @@ void main() {
 		uint rawIndex = lightIndex * LIGHT_STRIDE;
 
 		vec4 position = vec4(lightBuffer[rawIndex + LIGHT_POS_OFFSET].xyz, 1.0);
-		//position = mul(u_viewMat, position);
+		//position = mul(u_viewMat, position); // (we don't do this because we
+		                                       //  pre-transformed the planes into
+																					 //  world space)
 		float radius =  lightBuffer[rawIndex + LIGHT_RAD_OFFSET].x;
 
 		// We check if the light exists in our frustum
