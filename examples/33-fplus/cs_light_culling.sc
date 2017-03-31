@@ -16,6 +16,11 @@
 //    workGroupsY = (SCREEN_SIZE.y + (SCREEN_SIZE.y % 16)) / 16;
 //    (workGroupsX, workGroupsY, 1)
 
+// this is largely adapted from
+//   https://github.com/bcrusco/Forward-Plus-Renderer
+// and
+//   https://github.com/GPUOpen-LibrariesAndSDKs/ForwardPlus11
+
 // TILE_SIZE, MAX_LIGHTS_PER_TILE, {LIGHT_}
 #include "tile_params.sh"
 #include "bgfx_compute.sh"
@@ -100,8 +105,11 @@ void main() {
 		// Set up starting values for planes using steps and min and max z values
 		frustumPlanes[0] = vec4(1.0, 0.0, 0.0, 1.0 - negativeStep.x); // Left
 		frustumPlanes[1] = vec4(-1.0, 0.0, 0.0, -1.0 + positiveStep.x); // Right
-		frustumPlanes[2] = vec4(0.0, 1.0, 0.0, 1.0 - negativeStep.y); // Bottom
-		frustumPlanes[3] = vec4(0.0, -1.0, 0.0, -1.0 + positiveStep.y); // Top
+
+		// WEIRD: had to sign flip y   |
+		//                             v
+		frustumPlanes[2] = vec4(0.0, -1.0, 0.0,  1.0 - negativeStep.y); // Bottom
+		frustumPlanes[3] = vec4(0.0,  1.0, 0.0, -1.0 + positiveStep.y); // Top
 		frustumPlanes[4] = vec4(0.0, 0.0,  1.0,  minDepth); // Near
 		frustumPlanes[5] = vec4(0.0, 0.0, -1.0, -maxDepth); // Far
 
@@ -109,19 +117,17 @@ void main() {
 		//        this is not the correct inverse!
 		// TODO: just actually pass in inverse matrices?
 		// Transform the first four planes
-		/* DEBUG
+
 		for (uint i = 0; i < 4; i++) {
 			frustumPlanes[i] = mul(frustumPlanes[i], viewProjection);
 			frustumPlanes[i] /= length(frustumPlanes[i].xyz);
-		}*/
+		}
 
 		// Transform the depth planes
-		/* DEBUG
 		frustumPlanes[4] = mul(frustumPlanes[4], u_viewMat);
 		frustumPlanes[4] /= length(frustumPlanes[4].xyz);
 		frustumPlanes[5] = mul(frustumPlanes[5], u_viewMat);
 		frustumPlanes[5] /= length(frustumPlanes[5].xyz);
-		*/
 	}
 
 	barrier();
@@ -143,12 +149,12 @@ void main() {
 		uint rawIndex = lightIndex * LIGHT_STRIDE;
 
 		vec4 position = vec4(lightBuffer[rawIndex + LIGHT_POS_OFFSET].xyz, 1.0);
-		position = mul(u_viewMat, position);
+		//position = mul(u_viewMat, position);
 		float radius =  lightBuffer[rawIndex + LIGHT_RAD_OFFSET].x;
 
 		// We check if the light exists in our frustum
 		float distance = 0.0;
-		for (uint j = 4; j < 6; ++j) { // DEBUG: j < 6
+		for (uint j = 0; j < 6; ++j) { // DEBUG: j < 6
 			distance = dot(position, frustumPlanes[j]) + radius;
 
 			// If one of the tests fails, then there is no intersection
