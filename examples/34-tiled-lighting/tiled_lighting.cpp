@@ -79,48 +79,40 @@ class ExampleFPlus : public entry::AppI
 		light.m_w = 1.0f;
 	}
 
+	/*
 	void setLight(LightBufferVertex& light, float x, float y, float z) {
 		light.m_x = x;
 		light.m_y = y;
 		light.m_z = z;
 		light.m_w = 1.0f;
+	}*/
+
+	void updateLightPosition(LightBufferVertex& light) {
+		// lights float down to 0.0 then pop back up to 2.0
+		light.m_y -= randf() * 0.005f;
+		if (light.m_y < 0.0) {
+			light.m_y = randf() * 2.0f;
+		}
 	}
 
-	void updatelights()
-	{
-		/*
-		float rad = 1.0f;
-		setLight(m_lightData.m_vertices[0], 1.0, 0.0, 0.0);
-		setLight(m_lightData.m_vertices[1], -1.0, 0.0, 0.0);
-		setLight(m_lightData.m_vertices[2], rad, 1.0, 1.0);
-
-		setLight(m_lightData.m_vertices[3], 0.0, 1.0, 0.0);
-		setLight(m_lightData.m_vertices[4], 1.0, 0.0, 0.0);
-		setLight(m_lightData.m_vertices[5], rad, 1.0, 1.0);
-
-		setLight(m_lightData.m_vertices[6], 0.2f, 0.2f, 0.2f);
-		setLight(m_lightData.m_vertices[7], 1.0, 1.0, 1.0);
-		setLight(m_lightData.m_vertices[8], rad, 1.0, 1.0);
-
-		setLight(m_lightData.m_vertices[9], 0.2f, 0.2f, 0.2f);
-		setLight(m_lightData.m_vertices[10], -1.0, -1.0, -1.0);
-		setLight(m_lightData.m_vertices[11], rad, 1.0, 1.0);
-		*/
-
+	void initLights() {
 		unsigned int pos = 0;
 		for (unsigned int i = 0; i < m_lightData.m_lightCount; ++i) {
 			setRandom(m_lightData.m_vertices[pos + 0], 0.0f, 0.001f); // color
-			//m_lightData.m_vertices[pos + 0].m_x = 1.0f;
-			//m_lightData.m_vertices[pos + 0].m_y = i*1.0f;
-			//m_lightData.m_vertices[pos + 0].m_z = 0.0f;
-
-			setRandomBunnypos(m_lightData.m_vertices[pos + 1], -0.5f, 0.5f); // pos
-			//m_lightData.m_vertices[pos + 1].m_x = 0.1f; // i*0.1f;
-			//m_lightData.m_vertices[pos + 1].m_y = i*0.1f;
-			//m_lightData.m_vertices[pos + 1].m_z = 0.0f; // i*0.1f;
-			//m_lightData.m_vertices[pos + 1].m_w = 0.0f;
-
+			setRandomBunnypos(m_lightData.m_vertices[pos + 1], -1.0f, 1.0f); // pos
 			m_lightData.m_vertices[pos + 2].m_x = 0.1f;  // radius
+			pos += 3;
+		}
+
+		const bgfx::Memory* mem = bgfx::makeRef(&m_lightData.m_vertices[0], sizeof(LightBufferVertex) * m_lightData.m_vertexCount);
+		bgfx::updateDynamicVertexBuffer(m_lightData.m_lightBuffer, 0, mem);
+	}
+
+	void updateLights()
+	{
+		unsigned int pos = 0;
+		for (unsigned int i = 0; i < m_lightData.m_lightCount; ++i) {
+			updateLightPosition(m_lightData.m_vertices[pos + 1]); // pos
 			pos += 3;
 		}
 
@@ -180,8 +172,8 @@ class ExampleFPlus : public entry::AppI
 		m_lightData.m_lightBuffer = bgfx::createDynamicVertexBuffer(m_lightData.m_vertexCount, LightBufferVertex::ms_decl, BGFX_BUFFER_COMPUTE_READ);
 		m_lightData.m_visibleLightBuffer = bgfx::createDynamicVertexBuffer(m_tiles_x * m_tiles_y * MAX_LIGHTS_PER_TILE, LightIndexVertex::ms_decl, 
 																			BGFX_BUFFER_COMPUTE_READ_WRITE | BGFX_BUFFER_COMPUTE_FORMAT_32x1 | BGFX_BUFFER_COMPUTE_TYPE_FLOAT);
-
-		updatelights();
+		initLights();
+		//updatelights();
 
 		//     u_screenSize: vec2f (in pixels)
 		//     u_lightCount: vec4 (x: number of lights)
@@ -200,12 +192,10 @@ class ExampleFPlus : public entry::AppI
 		u_ambientColor = bgfx::createUniform("u_ambientColor", bgfx::UniformType::Vec4);
 
 		// Create program from shaders.
-		m_program_depthpass = loadProgram("vs_depth", "fs_depth");
+		m_program_depthpass = loadProgram("vs_tiled_lighting_depth", "fs_tiled_lighting_depth");
 		m_program_compute = bgfx::createProgram(loadShader("cs_tiled_lighting_cull"), true);
-		//m_program_compute = bgfx::createProgram(loadShader("cs_light_culling"), true);
-
-		m_program_light = loadProgram("vs_light_accumulation", "fs_light_accumulation");
-		//m_program_light = loadProgram("vs_light_accumulation", "fs_light_debug");
+		m_program_light = loadProgram("vs_tiled_lighting_accumulation", "fs_tiled_lighting_accumulation");
+		//m_program_light = loadProgram("vs_tiled_lighting_accumulation", "fs_tiled_lighting_debug");
 
 		m_mesh = meshLoad("meshes/bunny.bin");
 
@@ -252,9 +242,12 @@ class ExampleFPlus : public entry::AppI
 			bgfx::dbgTextPrintf(0, 2, 0x6f, "Description: Forward plus (tiled forward) rendering.");
 			bgfx::dbgTextPrintf(0, 3, 0x0f, "Frame: % 7.3f[ms]", double(frameTime)*toMs);
 
-			// STEP 0: SET UP MATRICES
+			// UPDATE LIGHTS
+			updateLights();
+
+			// MATRIX SETUP
 			float at[3] = { 0.0f, 1.0f,  0.0f };
-			float eye[3] = { 0.0f, 1.0f, -2.0f };
+			float eye[3] = { 0.0f, 1.5f, -2.0f };
 			float view[16];
 			bx::mtxLookAt(view, eye, at);
 
@@ -265,15 +258,12 @@ class ExampleFPlus : public entry::AppI
 			bgfx::setViewTransform(0, view, proj);
 			bgfx::setViewTransform(1, view, proj);
 
-			// STEP 1: DRAW DEPTH
-
-			// STEP 2: SORT/CULL LIGHTS
-
+			// LIGHT CULLING COMPUTE SHADER
 			// INPUTS/SETUP:
 			//   buffers:
 			//     0: lightBuffer [vec4f color, vec4f pos, vec4f rad]*nlights
-			//     1: visibleLightIndicesBuffer [float]*(MAX_LIGHTS_PER_TILE*NUM_TILES)
-			//     2: s_depthMap [r32f "depth" buffer]
+			//     1: outLightIndices [float]*(MAX_LIGHTS_PER_TILE*NUM_TILES)
+			//     2: s_depthMap [rgba32f "depth" buffer]
 			//
 			//  uniforms:
 			//     u_screenSize: vec2f (in pixels)
@@ -283,9 +273,9 @@ class ExampleFPlus : public entry::AppI
 			//     u_dispatchParams: vec4f (x: n_tiles_x, y: n_tiles_y)
 			//
 			//  Dispatch:
-			//  	workGroupsX = (SCREEN_SIZE.x + (SCREEN_SIZE.x % 16)) / 16;
-			//    workGroupsY = (SCREEN_SIZE.y + (SCREEN_SIZE.y % 16)) / 16;
-			//    (workGroupsX, workGroupsY, 1)
+			//     workGroupsX = (SCREEN_SIZE.x + (SCREEN_SIZE.x % 16)) / 16;
+			//     workGroupsY = (SCREEN_SIZE.y + (SCREEN_SIZE.y % 16)) / 16;
+			//     (workGroupsX, workGroupsY, 1)
 
 			bgfx::setBuffer(0, m_lightData.m_lightBuffer, bgfx::Access::Read);
 			bgfx::setBuffer(1, m_lightData.m_visibleLightBuffer, bgfx::Access::ReadWrite);
@@ -303,15 +293,12 @@ class ExampleFPlus : public entry::AppI
 
 			bgfx::dispatch(1, m_program_compute, uint16_t(m_tiles_x), uint16_t(m_tiles_y), 1);
 
-			// STEP 3: DRAW GEOMETRY (both view 0 and view 1)
+			// DRAW GEOMETRY (both view 0 [depth] and view 1 [light accumulation])
 			float mtx[16];
 			bx::mtxRotateXY(mtx
 				, 0.0f
-				, time*0.37f
+				, time*0.1f
 				);
-			if (time*0.37f > 3.14) {
-				time = time + 1.0f;
-			}
 
 			meshSubmit(m_mesh, 0, m_program_depthpass, mtx);
 
