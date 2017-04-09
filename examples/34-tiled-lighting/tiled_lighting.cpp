@@ -193,6 +193,7 @@ class ExampleFPlus : public entry::AppI
 		u_dispatchParams = bgfx::createUniform("u_dispatchParams", bgfx::UniformType::Vec4);
 		u_viewMat = bgfx::createUniform("u_viewMat", bgfx::UniformType::Mat4);
 		u_projectionMat = bgfx::createUniform("u_projectionMat", bgfx::UniformType::Mat4);
+		u_projectionInvMat = bgfx::createUniform("u_projectionInvMat", bgfx::UniformType::Mat4);
 		s_depthMap = bgfx::createUniform("s_depthMap", bgfx::UniformType::Int1);
 
 		u_diffuseColor = bgfx::createUniform("u_diffuseColor", bgfx::UniformType::Vec4);
@@ -200,7 +201,9 @@ class ExampleFPlus : public entry::AppI
 
 		// Create program from shaders.
 		m_program_depthpass = loadProgram("vs_depth", "fs_depth");
-		m_program_compute = bgfx::createProgram(loadShader("cs_light_culling"), true);
+		m_program_compute = bgfx::createProgram(loadShader("cs_tiled_lighting_cull"), true);
+		//m_program_compute = bgfx::createProgram(loadShader("cs_light_culling"), true);
+
 		m_program_light = loadProgram("vs_light_accumulation", "fs_light_accumulation");
 		//m_program_light = loadProgram("vs_light_accumulation", "fs_light_debug");
 
@@ -256,7 +259,9 @@ class ExampleFPlus : public entry::AppI
 			bx::mtxLookAt(view, eye, at);
 
 			float proj[16];
+			float projInv[16];
 			bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
+			bx::mtxInverse(projInv, proj);
 			bgfx::setViewTransform(0, view, proj);
 			bgfx::setViewTransform(1, view, proj);
 
@@ -291,6 +296,7 @@ class ExampleFPlus : public entry::AppI
 			float lightcount[4] = { float(m_lightData.m_lightCount), 0.0f, 0.0f, 0.0f };
 			bgfx::setUniform(u_lightCount, lightcount);
 			bgfx::setUniform(u_projectionMat, proj);
+			bgfx::setUniform(u_projectionInvMat, projInv);
 			bgfx::setUniform(u_viewMat, view);
 			float dispatchparams[4] = { float(m_tiles_x), float(m_tiles_y), 1.0f, 0.0f };
 			bgfx::setUniform(u_dispatchParams, dispatchparams);
@@ -355,6 +361,7 @@ class ExampleFPlus : public entry::AppI
 	bgfx::UniformHandle u_dispatchParams;
 	bgfx::UniformHandle u_viewMat;
 	bgfx::UniformHandle u_projectionMat;
+	bgfx::UniformHandle u_projectionInvMat;
 	bgfx::UniformHandle s_depthMap;
 
 	bgfx::UniformHandle u_diffuseColor;
