@@ -10,6 +10,7 @@
 
 #define MAX_LIGHTS_PER_TILE 1024
 #define TILE_SIZE 16
+#define MAX_TOTAL_LIGHTS 4096
 
 struct LightBufferVertex
 {
@@ -90,7 +91,7 @@ class ExampleFPlus : public entry::AppI
 
 	void initLights() {
 		unsigned int idx = 0;
-		for (unsigned int i = 0; i < m_lightData.m_lightCount; ++i) {
+		for (unsigned int i = 0; i < MAX_TOTAL_LIGHTS; ++i) {
 			// using an unstructured buffer of vec4s: each light needs 3 vals
 			setRandomColor(m_lightData.m_vertices[idx + 0]); // color
 			setRandomPos(m_lightData.m_vertices[idx + 1]);   // pos
@@ -104,10 +105,11 @@ class ExampleFPlus : public entry::AppI
 
 	void updateLights()
 	{
-		unsigned int pos = 0;
+		unsigned int idx = 0;
 		for (unsigned int i = 0; i < m_lightData.m_lightCount; ++i) {
-			updateLightPosition(m_lightData.m_vertices[pos + 1]); // pos
-			pos += 3;
+			updateLightPosition(m_lightData.m_vertices[idx + 1]); // pos
+			m_lightData.m_vertices[idx + 2].m_x = m_lightRadius;  // radius
+			idx += 3;
 		}
 
 		const bgfx::Memory* mem = bgfx::makeRef(&m_lightData.m_vertices[0], sizeof(LightBufferVertex) * m_lightData.m_vertexCount);
@@ -126,7 +128,9 @@ class ExampleFPlus : public entry::AppI
 		m_tiles_x = m_width / TILE_SIZE;
 		m_tiles_y = m_height / TILE_SIZE;
 
-		m_showLightCounts = true;
+		m_showLightCounts = false;
+		m_lightRadius = 0.1f;
+		m_numActiveLights = 1024;
 		m_scrollArea = 0;
 
 		bgfx::init(args.m_type, args.m_pciId);
@@ -163,8 +167,8 @@ class ExampleFPlus : public entry::AppI
 		LightBufferVertex::init();
 		LightIndexVertex::init();
 
-		m_lightData.m_lightCount = 1024;
-		m_lightData.m_vertexCount = m_lightData.m_lightCount * 3;
+		m_lightData.m_lightCount = m_numActiveLights;
+		m_lightData.m_vertexCount = MAX_TOTAL_LIGHTS * 3;  //m_lightData.m_lightCount * 3;
 		m_lightData.m_vertices = (LightBufferVertex*)BX_ALLOC(entry::getAllocator(), m_lightData.m_vertexCount * sizeof(LightBufferVertex));
 		m_lightData.m_lightBuffer = bgfx::createDynamicVertexBuffer(m_lightData.m_vertexCount, LightBufferVertex::ms_decl, BGFX_BUFFER_COMPUTE_READ);
 		m_lightData.m_visibleLightBuffer = bgfx::createDynamicVertexBuffer(m_tiles_x * m_tiles_y * MAX_LIGHTS_PER_TILE, LightIndexVertex::ms_decl, 
@@ -254,7 +258,7 @@ class ExampleFPlus : public entry::AppI
 				, uint16_t(m_height)
 			);
 
-			imguiBeginScrollArea("Settings", m_width - m_width / 5 - 10, 10, m_width / 5, m_height / 8, &m_scrollArea);
+			imguiBeginScrollArea("Settings", m_width - m_width / 5 - 10, 10, m_width / 5, m_height / 5, &m_scrollArea);
 
 			if (imguiCheck("Show lighting", !m_showLightCounts))
 			{
@@ -264,6 +268,12 @@ class ExampleFPlus : public entry::AppI
 			{
 				m_showLightCounts = true;
 			}
+
+			imguiSeparatorLine();
+
+			imguiSlider("Number of lights", m_numActiveLights, 1, MAX_TOTAL_LIGHTS);
+			imguiSlider("Light radius", m_lightRadius, 0.05f, 1.0f, 0.01f);
+			m_lightData.m_lightCount = m_numActiveLights;
 
 			imguiEndScrollArea();
 			imguiEndFrame();
@@ -363,6 +373,8 @@ class ExampleFPlus : public entry::AppI
 	uint32_t m_tiles_y;
 
 	bool m_showLightCounts;
+	int m_numActiveLights;
+	float m_lightRadius;
 	int32_t m_scrollArea;
 
 	int64_t m_timeOffset;
