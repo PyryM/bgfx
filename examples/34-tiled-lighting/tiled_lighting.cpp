@@ -60,7 +60,7 @@ struct LightData
 };
 
 
-class ExampleFPlus : public entry::AppI
+class ExampleTiledLighting : public entry::AppI
 {
 	float randf()
 	{
@@ -431,4 +431,4 @@ class ExampleFPlus : public entry::AppI
 	entry::MouseState m_mouseState;
 };
 
-ENTRY_IMPLEMENT_MAIN(ExampleFPlus);
+ENTRY_IMPLEMENT_MAIN(ExampleTiledLighting);
