@@ -6,6 +6,7 @@
 
 #include "common.h"
 #include "bgfx_utils.h"
+#include "imgui/imgui.h"
 
 #define MAX_LIGHTS_PER_TILE 1024
 #define TILE_SIZE 16
@@ -125,6 +126,9 @@ class ExampleFPlus : public entry::AppI
 		m_tiles_x = m_width / TILE_SIZE;
 		m_tiles_y = m_height / TILE_SIZE;
 
+		m_showLightCounts = true;
+		m_scrollArea = 0;
+
 		bgfx::init(args.m_type, args.m_pciId);
 		bgfx::reset(m_width, m_height, m_reset);
 
@@ -187,16 +191,20 @@ class ExampleFPlus : public entry::AppI
 		// Create program from shaders.
 		m_program_depthpass = loadProgram("vs_tiled_lighting_depth", "fs_tiled_lighting_depth");
 		m_program_compute = bgfx::createProgram(loadShader("cs_tiled_lighting_cull"), true);
-		//m_program_light = loadProgram("vs_tiled_lighting_accumulation", "fs_tiled_lighting_accumulation");
-		m_program_light = loadProgram("vs_tiled_lighting_accumulation", "fs_tiled_lighting_debug");
+		m_program_light = loadProgram("vs_tiled_lighting_accumulation", "fs_tiled_lighting_accumulation");
+		m_program_light_dbg = loadProgram("vs_tiled_lighting_accumulation", "fs_tiled_lighting_debug");
 
 		m_mesh = meshLoad("meshes/bunny.bin");
 
 		m_timeOffset = bx::getHPCounter();
+
+		// Imgui.
+		imguiCreate();
 	}
 
 	int shutdown() BX_OVERRIDE
 	{
+		imguiDestroy();
 		meshUnload(m_mesh);
 
 		// Cleanup.
@@ -210,7 +218,7 @@ class ExampleFPlus : public entry::AppI
 
 	bool update() BX_OVERRIDE
 	{
-		if (!entry::processEvents(m_width, m_height, m_debug, m_reset) )
+		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState) )
 		{
 			// Set both views to use full viewports.
 			bgfx::setViewRect(0, 0, 0, uint16_t(m_width), uint16_t(m_height) );
@@ -234,6 +242,31 @@ class ExampleFPlus : public entry::AppI
 			bgfx::dbgTextPrintf(0, 1, 0x4f, "bgfx/examples/34-tiled-lighting");
 			bgfx::dbgTextPrintf(0, 2, 0x6f, "Description: Tiled forward (forward plus) lighting.");
 			bgfx::dbgTextPrintf(0, 3, 0x0f, "Frame: % 7.3f[ms]", double(frameTime)*toMs);
+
+			// Imgui stuff
+			imguiBeginFrame(m_mouseState.m_mx
+				, m_mouseState.m_my
+				, (m_mouseState.m_buttons[entry::MouseButton::Left] ? IMGUI_MBUT_LEFT : 0)
+				| (m_mouseState.m_buttons[entry::MouseButton::Right] ? IMGUI_MBUT_RIGHT : 0)
+				| (m_mouseState.m_buttons[entry::MouseButton::Middle] ? IMGUI_MBUT_MIDDLE : 0)
+				, m_mouseState.m_mz
+				, uint16_t(m_width)
+				, uint16_t(m_height)
+			);
+
+			imguiBeginScrollArea("Settings", m_width - m_width / 5 - 10, 10, m_width / 5, m_height / 8, &m_scrollArea);
+
+			if (imguiCheck("Show lighting", !m_showLightCounts))
+			{
+				m_showLightCounts = false;
+			}
+			if (imguiCheck("Show light counts", m_showLightCounts))
+			{
+				m_showLightCounts = true;
+			}
+
+			imguiEndScrollArea();
+			imguiEndFrame();
 
 			// UPDATE LIGHTS
 			updateLights();
@@ -302,7 +335,14 @@ class ExampleFPlus : public entry::AppI
 			float tempcolor2[4] = { 0.1f, 0.1f, 0.1f, 0.0f };
 			bgfx::setUniform(u_diffuseColor, tempcolor1);
 			bgfx::setUniform(u_ambientColor, tempcolor2);
-			meshSubmit(m_mesh, 1, m_program_light, mtx);
+			if (m_showLightCounts)
+			{
+				meshSubmit(m_mesh, 1, m_program_light_dbg, mtx);
+			}
+			else
+			{
+				meshSubmit(m_mesh, 1, m_program_light, mtx);
+			}
 
 			// Advance to next frame. Rendering thread will be kicked to
 			// process submitted rendering primitives.
@@ -322,11 +362,15 @@ class ExampleFPlus : public entry::AppI
 	uint32_t m_tiles_x;
 	uint32_t m_tiles_y;
 
+	bool m_showLightCounts;
+	int32_t m_scrollArea;
+
 	int64_t m_timeOffset;
 	Mesh* m_mesh;
 	bgfx::ProgramHandle m_program_depthpass;
 	bgfx::ProgramHandle m_program_compute;
 	bgfx::ProgramHandle m_program_light;
+	bgfx::ProgramHandle m_program_light_dbg;
 
 	LightData m_lightData;
 
@@ -343,6 +387,8 @@ class ExampleFPlus : public entry::AppI
 
 	bgfx::TextureHandle m_fbtextures[2];
 	bgfx::FrameBufferHandle m_fbh;
+
+	entry::MouseState m_mouseState;
 };
 
 ENTRY_IMPLEMENT_MAIN(ExampleFPlus);
