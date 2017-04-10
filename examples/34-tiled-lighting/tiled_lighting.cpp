@@ -129,7 +129,7 @@ class ExampleFPlus : public entry::AppI
 		m_tiles_y = m_height / TILE_SIZE;
 
 		m_showLightCounts = false;
-		m_lightRadius = 0.1f;
+		m_lightRadius = 0.3f;
 		m_numActiveLights = 1024;
 		m_scrollArea = 0;
 
@@ -168,13 +168,12 @@ class ExampleFPlus : public entry::AppI
 		LightIndexVertex::init();
 
 		m_lightData.m_lightCount = m_numActiveLights;
-		m_lightData.m_vertexCount = MAX_TOTAL_LIGHTS * 3;  //m_lightData.m_lightCount * 3;
+		m_lightData.m_vertexCount = MAX_TOTAL_LIGHTS * 3;
 		m_lightData.m_vertices = (LightBufferVertex*)BX_ALLOC(entry::getAllocator(), m_lightData.m_vertexCount * sizeof(LightBufferVertex));
 		m_lightData.m_lightBuffer = bgfx::createDynamicVertexBuffer(m_lightData.m_vertexCount, LightBufferVertex::ms_decl, BGFX_BUFFER_COMPUTE_READ);
 		m_lightData.m_visibleLightBuffer = bgfx::createDynamicVertexBuffer(m_tiles_x * m_tiles_y * MAX_LIGHTS_PER_TILE, LightIndexVertex::ms_decl, 
 																			BGFX_BUFFER_COMPUTE_READ_WRITE | BGFX_BUFFER_COMPUTE_FORMAT_32x1 | BGFX_BUFFER_COMPUTE_TYPE_FLOAT);
 		initLights();
-		//updatelights();
 
 		//     u_screenSize: vec2f (in pixels)
 		//     u_lightCount: vec4 (x: number of lights)
@@ -192,7 +191,7 @@ class ExampleFPlus : public entry::AppI
 		u_diffuseColor = bgfx::createUniform("u_diffuseColor", bgfx::UniformType::Vec4);
 		u_ambientColor = bgfx::createUniform("u_ambientColor", bgfx::UniformType::Vec4);
 
-		// Create program from shaders.
+		// Create programs.
 		m_program_depthpass = loadProgram("vs_tiled_lighting_depth", "fs_tiled_lighting_depth");
 		m_program_compute = bgfx::createProgram(loadShader("cs_tiled_lighting_cull"), true);
 		m_program_light = loadProgram("vs_tiled_lighting_accumulation", "fs_tiled_lighting_accumulation");
@@ -263,11 +262,9 @@ class ExampleFPlus : public entry::AppI
 			// Set both views to use full viewports.
 			bgfx::setViewRect(0, 0, 0, uint16_t(m_width), uint16_t(m_height) );
 			bgfx::setViewRect(1, 0, 0, uint16_t(m_width), uint16_t(m_height));
-			bgfx::setViewFrameBuffer(0, m_fbh); // WEIRD: just setting this once doesn't work?
 
-			// This dummy draw call is here to make sure that view 0 is cleared
-			// if no other draw calls are submitted to view 0.
-			//bgfx::touch(1);
+			// WEIRD: just setting this once in init doesn't work
+			bgfx::setViewFrameBuffer(0, m_fbh); 
 
 			int64_t now = bx::getHPCounter();
 			static int64_t last = now;
@@ -334,13 +331,14 @@ class ExampleFPlus : public entry::AppI
 			// INPUTS/SETUP:
 			//   buffers:
 			//     0: lightBuffer [vec4f color, vec4f pos, vec4f rad]*nlights
-			//     1: outLightIndices [float]*(MAX_LIGHTS_PER_TILE*NUM_TILES)
+			//     1: visibleLightBuffer [float]*(MAX_LIGHTS_PER_TILE*NUM_TILES)
 			//     2: s_depthMap [rgba32f "depth" buffer]
 			//
 			//  uniforms:
 			//     u_screenSize: vec2f (in pixels)
 			//     u_lightCount: vec4 (x: number of lights)
 			//     u_projectionMat: camera projection matrix
+			//     u_projectionInvMat: inverse projection matrix
 			//     u_viewMat: camera view matrix
 			//     u_dispatchParams: vec4f (x: n_tiles_x, y: n_tiles_y)
 			//
@@ -381,14 +379,8 @@ class ExampleFPlus : public entry::AppI
 			float tempcolor2[4] = { 0.1f, 0.1f, 0.1f, 0.0f };
 			bgfx::setUniform(u_diffuseColor, tempcolor1);
 			bgfx::setUniform(u_ambientColor, tempcolor2);
-			if (m_showLightCounts)
-			{
-				meshSubmit(m_mesh, 1, m_program_light_dbg, mtx);
-			}
-			else
-			{
-				meshSubmit(m_mesh, 1, m_program_light, mtx);
-			}
+			meshSubmit(m_mesh, 1, 
+				m_showLightCounts ? m_program_light_dbg : m_program_light, mtx);
 
 			// Advance to next frame. Rendering thread will be kicked to
 			// process submitted rendering primitives.
