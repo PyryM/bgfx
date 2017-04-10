@@ -65,43 +65,36 @@ class ExampleFPlus : public entry::AppI
 		return static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 	}
 
-	void setRandom(LightBufferVertex& light, float minval, float maxval) {
-		light.m_x = randf() * (maxval - minval) + minval;
-		light.m_y = randf() * (maxval - minval) + minval;
-		light.m_z = randf() * (maxval - minval) + minval;
+	void setRandomColor(LightBufferVertex& light) {
+		light.m_x = randf() * 0.001f;
+		light.m_y = randf() * 0.001f;
+		light.m_z = randf() * 0.001f;
 		light.m_w = 1.0f;
 	}
 
-	void setRandomBunnypos(LightBufferVertex& light, float minval, float maxval) {
-		light.m_x = randf() * (maxval - minval) + minval;
-		light.m_y = randf() * maxval * 2.0f;
-		light.m_z = randf() * (maxval - minval) + minval;
+	void setRandomPos(LightBufferVertex& light) {
+		light.m_x = randf() * 2.0f - 1.0f;
+		light.m_y = randf() * 2.0f;
+		light.m_z = randf() * 2.0f - 1.0f;
 		light.m_w = 1.0f;
 	}
-
-	/*
-	void setLight(LightBufferVertex& light, float x, float y, float z) {
-		light.m_x = x;
-		light.m_y = y;
-		light.m_z = z;
-		light.m_w = 1.0f;
-	}*/
 
 	void updateLightPosition(LightBufferVertex& light) {
 		// lights float down to 0.0 then pop back up to 2.0
-		light.m_y -= randf() * 0.005f;
+		light.m_y -= 0.005f;
 		if (light.m_y < 0.0) {
 			light.m_y = randf() * 2.0f;
 		}
 	}
 
 	void initLights() {
-		unsigned int pos = 0;
+		unsigned int idx = 0;
 		for (unsigned int i = 0; i < m_lightData.m_lightCount; ++i) {
-			setRandom(m_lightData.m_vertices[pos + 0], 0.0f, 0.001f); // color
-			setRandomBunnypos(m_lightData.m_vertices[pos + 1], -1.0f, 1.0f); // pos
-			m_lightData.m_vertices[pos + 2].m_x = 0.1f;  // radius
-			pos += 3;
+			// using an unstructured buffer of vec4s: each light needs 3 vals
+			setRandomColor(m_lightData.m_vertices[idx + 0]); // color
+			setRandomPos(m_lightData.m_vertices[idx + 1]);   // pos
+			m_lightData.m_vertices[idx + 2].m_x = 0.2f;      // radius
+			idx += 3;
 		}
 
 		const bgfx::Memory* mem = bgfx::makeRef(&m_lightData.m_vertices[0], sizeof(LightBufferVertex) * m_lightData.m_vertexCount);
@@ -194,8 +187,8 @@ class ExampleFPlus : public entry::AppI
 		// Create program from shaders.
 		m_program_depthpass = loadProgram("vs_tiled_lighting_depth", "fs_tiled_lighting_depth");
 		m_program_compute = bgfx::createProgram(loadShader("cs_tiled_lighting_cull"), true);
-		m_program_light = loadProgram("vs_tiled_lighting_accumulation", "fs_tiled_lighting_accumulation");
-		//m_program_light = loadProgram("vs_tiled_lighting_accumulation", "fs_tiled_lighting_debug");
+		//m_program_light = loadProgram("vs_tiled_lighting_accumulation", "fs_tiled_lighting_accumulation");
+		m_program_light = loadProgram("vs_tiled_lighting_accumulation", "fs_tiled_lighting_debug");
 
 		m_mesh = meshLoad("meshes/bunny.bin");
 
@@ -238,8 +231,8 @@ class ExampleFPlus : public entry::AppI
 
 			// Use debug font to print information about this example.
 			bgfx::dbgTextClear();
-			bgfx::dbgTextPrintf(0, 1, 0x4f, "bgfx/examples/33-fplus");
-			bgfx::dbgTextPrintf(0, 2, 0x6f, "Description: Forward plus (tiled forward) rendering.");
+			bgfx::dbgTextPrintf(0, 1, 0x4f, "bgfx/examples/34-tiled-lighting");
+			bgfx::dbgTextPrintf(0, 2, 0x6f, "Description: Tiled forward (forward plus) lighting.");
 			bgfx::dbgTextPrintf(0, 3, 0x0f, "Frame: % 7.3f[ms]", double(frameTime)*toMs);
 
 			// UPDATE LIGHTS
@@ -301,12 +294,6 @@ class ExampleFPlus : public entry::AppI
 				);
 
 			meshSubmit(m_mesh, 0, m_program_depthpass, mtx);
-
-			//BUFFER_RO(lightBuffer, vec4, 0);
-			//BUFFER_RO(visibleLightIndicesBuffer, float, 1);
-			//uniform vec4 u_dispatchParams; // hlsl doesn't seem to make this available
-			//uniform vec4 u_diffuseColor;
-			//uniform vec4 u_ambientColor;
 
 			bgfx::setBuffer(0, m_lightData.m_lightBuffer, bgfx::Access::Read);
 			bgfx::setBuffer(1, m_lightData.m_visibleLightBuffer, bgfx::Access::Read);
