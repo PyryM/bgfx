@@ -6,7 +6,7 @@
 
 #include "common.h"
 #include "bgfx_utils.h"
-#include "imgui/imgui.h"
+#include <imgui/imgui.h>
 
 #define MAX_LIGHTS_PER_TILE 1024
 #define TILE_SIZE 16
@@ -291,24 +291,18 @@ class ExampleTiledLighting : public entry::AppI
 				, uint16_t(m_height)
 			);
 
-			imguiBeginScrollArea("Settings", m_width - m_width / 5 - 10, 10, m_width / 5, m_height / 5, &m_scrollArea);
+			ImGui::Begin("Tiled Forward Lighting"
+				, NULL
+				, ImVec2(300.0f, 125.0f)
+				, ImGuiWindowFlags_AlwaysAutoResize
+			);
 
-			if (imguiCheck("Show lighting", !m_showLightCounts))
-			{
-				m_showLightCounts = false;
-			}
-			if (imguiCheck("Show light counts", m_showLightCounts))
-			{
-				m_showLightCounts = true;
-			}
-
-			imguiSeparatorLine();
-
-			imguiSlider("Number of lights", m_numActiveLights, 1, MAX_TOTAL_LIGHTS);
-			imguiSlider("Light radius", m_lightRadius, 0.05f, 1.0f, 0.01f);
+			ImGui::SliderInt("Light count", &m_numActiveLights, 1, MAX_TOTAL_LIGHTS);
+			ImGui::SliderFloat("Light radius", &m_lightRadius, 0.05f, 1.0f);
+			ImGui::Checkbox("Show tile light influence", &m_showLightCounts);
+			ImGui::End();
 			m_lightData.m_lightCount = m_numActiveLights;
 
-			imguiEndScrollArea();
 			imguiEndFrame();
 
 			// UPDATE LIGHTS
