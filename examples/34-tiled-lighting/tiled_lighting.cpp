@@ -212,7 +212,43 @@ class ExampleFPlus : public entry::AppI
 		meshUnload(m_mesh);
 
 		// Cleanup.
-		// TODO
+
+		if (bgfx::isValid(m_lightData.m_lightBuffer))
+		{
+			bgfx::destroyDynamicVertexBuffer(m_lightData.m_lightBuffer);
+		}
+
+		if (bgfx::isValid(m_lightData.m_visibleLightBuffer))
+		{
+			bgfx::destroyDynamicVertexBuffer(m_lightData.m_visibleLightBuffer);
+		}
+
+		if (bgfx::isValid(m_fbh))
+		{
+			bgfx::destroyFrameBuffer(m_fbh);
+		}
+
+		bgfx::destroyUniform(u_diffuseColor);
+		bgfx::destroyUniform(u_ambientColor);
+		bgfx::destroyUniform(u_screenSize);
+		bgfx::destroyUniform(u_lightCount);
+		bgfx::destroyUniform(u_dispatchParams);
+		bgfx::destroyUniform(u_viewMat);
+		bgfx::destroyUniform(u_projectionMat);
+		bgfx::destroyUniform(u_projectionInvMat);
+		bgfx::destroyUniform(s_depthMap);
+
+		bgfx::destroyProgram(m_program_depthpass);
+		bgfx::destroyProgram(m_program_compute);
+		bgfx::destroyProgram(m_program_light);
+		bgfx::destroyProgram(m_program_light_dbg);
+
+		/// When data is passed to bgfx via makeRef we need to make
+		/// sure library is done with it before freeing memory blocks.
+		bgfx::frame();
+
+		bx::AllocatorI* allocator = entry::getAllocator();
+		BX_FREE(allocator, m_lightData.m_vertices);
 
 		// Shutdown bgfx.
 		bgfx::shutdown();
