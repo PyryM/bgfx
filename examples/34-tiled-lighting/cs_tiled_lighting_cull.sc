@@ -12,7 +12,7 @@
 //     u_dispatchParams: vec4f (x: n_tiles_x, y: n_tiles_y)
 //
 //  Dispatch:
-//  	workGroupsX = (SCREEN_SIZE.x + (SCREEN_SIZE.x % 16)) / 16;
+//      workGroupsX = (SCREEN_SIZE.x + (SCREEN_SIZE.x % 16)) / 16;
 //    workGroupsY = (SCREEN_SIZE.y + (SCREEN_SIZE.y % 16)) / 16;
 //    (workGroupsX, workGroupsY, 1)
 
@@ -42,8 +42,7 @@ uniform mat4 u_viewMat;
 //------------------------------------------------------------------------------
 // Helper Functions
 //------------------------------------------------------------------------------
-vec3 convertProjToView( vec4 p )
-{
+vec3 convertProjToView( vec4 p ) {
     // WEIRD: AMD was left-multiplying?
     p = mul( u_projectionInvMat, p );
     p /= p.w;
@@ -52,8 +51,7 @@ vec3 convertProjToView( vec4 p )
 
 // this creates the standard Hessian-normal-form plane equation from three points,
 // except it is simplified for the case where the first point is the origin
-vec4 createPlaneEquation( vec3 b, vec3 c )
-{
+vec4 createPlaneEquation( vec3 b, vec3 c ) {
     // normalize(cross( b-a, c-a )), except we know "a" is the origin
     // also, typically there would be a fourth term of the plane equation,
     // -(n dot a), except we know "a" is the origin
@@ -75,16 +73,15 @@ SHARED uint lightIdx[MAX_LIGHTS_PER_TILE];
 SHARED vec4 planes[6];
 
 // assume non-MSAA (see the full amd example for MSAA)
-void calculateMinMaxDepth(ivec2 pixelpos)
-{
+void calculateMinMaxDepth(ivec2 pixelpos) {
     float depth = imageLoad(s_depthMap, pixelpos).r;
     uint z = floatBitsToUint(depth); // glsl builtin
 
     // TODO: get the bgfx macros for these to actually work
-  	//atomicMin(depthMin, z);
-  	//atomicMax(depthMax, z);
+    //atomicMin(depthMin, z);
+    //atomicMax(depthMax, z);
     InterlockedMin(depthMin, z);
-  	InterlockedMax(depthMax, z);
+    InterlockedMax(depthMax, z);
 }
 
 //-----------------------------------------------------------------------------------------
@@ -93,16 +90,14 @@ void calculateMinMaxDepth(ivec2 pixelpos)
 // WEIRD: this macro specifically needs there to be no ; at the end
 NUM_THREADS(TILE_SIZE, TILE_SIZE, 1)
 
-void main()
-{
+void main() {
     ivec2 tileIdx = ivec2(gl_WorkGroupID.xy);
     ivec2 tileCounts = ivec2(u_dispatchParams.xy);
     ivec2 pixelPos = ivec2(gl_GlobalInvocationID.xy);
 
     uint localIdxFlattened = gl_LocalInvocationIndex;
 
-    if(localIdxFlattened == 0)
-    {
+    if(localIdxFlattened == 0) {
         //depthMin = 0x7f7fffff;  // FLT_MAX as a uint
         depthMin = 0xFFFFFFFF;    // WEIRD: have to use this value instead?
         depthMax = 0;
@@ -115,8 +110,7 @@ void main()
     calculateMinMaxDepth(pixelPos);
     barrier();
 
-    if(localIdxFlattened == 0)
-    {
+    if(localIdxFlattened == 0) {
         float minZ = uintBitsToFloat( depthMin );
         float maxZ = uintBitsToFloat( depthMax );
 
@@ -161,12 +155,11 @@ void main()
         // instead multiplying the planes ahead of time
         // by the view matrix transpose
 
-        for(uint i = 0; i < 6; ++i)
-        {
-          // WEIRD: need to y-flip for some reason
-          planes[i].y *= -1.0;
-          planes[i] = mul(planes[i], u_viewMat);
-          //planes[i] /= length(planes[i].xyz);
+        for(uint i = 0; i < 6; ++i) {
+            // WEIRD: need to y-flip for some reason
+            planes[i].y *= -1.0;
+            planes[i] = mul(planes[i], u_viewMat);
+            //planes[i] /= length(planes[i].xyz);
         }
     }
 
@@ -174,38 +167,38 @@ void main()
 
     // loop over the lights and do a sphere vs. frustum intersection test
     uint numLights = u_lightCount.x;
-    for(uint i = localIdxFlattened; i < numLights; i += NUM_THREADS_PER_TILE)
-    {
+    for(uint i = localIdxFlattened; i < numLights; i += NUM_THREADS_PER_TILE) {
         if(i >= numLights) {
-          break;
+            break;
         }
 
         // we aren't using fancy structured buffers, so we need to stride by how
-    		// many vec4's in each light
-    		uint rawIndex = i * LIGHT_STRIDE;
+        // many vec4's in each light
+        uint rawIndex = i * LIGHT_STRIDE;
         vec4 position = vec4(lightBuffer[rawIndex + LIGHT_POS_OFFSET].xyz, 1.0);
-    		float negativeRadius =  -1.0 * lightBuffer[rawIndex + LIGHT_RAD_OFFSET].x;
+        float negativeRadius =  -1.0 * lightBuffer[rawIndex + LIGHT_RAD_OFFSET].x;
         float distance = 0.0;
         float radius = lightBuffer[rawIndex + LIGHT_RAD_OFFSET].x;
 
-    		for (uint j = 0; j < 6; ++j) {
-    			distance = dot(position, planes[j]); // + radius;
-    			if (distance < negativeRadius) {
-    				break;
-    			}
-    		}
+        for (uint j = 0; j < 6; ++j) {
+            distance = dot(position, planes[j]); // + radius;
+            if (distance < negativeRadius) {
+                break;
+            }
+        }
 
-    		if (distance >= negativeRadius) {
-    			uint offset;
-    			InterlockedAdd(lightIdxCounter, 1, offset);
-    			// TODO: fix bgfx macros atomicAdd(lightIdxCounter, 1);
-    			lightIdx[offset] = int(i);
-    		}
+        if (distance >= negativeRadius) {
+            uint offset;
+            InterlockedAdd(lightIdxCounter, 1, offset);
+            // TODO: fix bgfx macros atomicAdd(lightIdxCounter, 1);
+            lightIdx[offset] = int(i);
+        }
     }
 
     barrier();
 
-    {   // write back
+    {   
+        //  Write back
         //  This is using a common compute idiom to copy
         //  the array lightIdx into outLightIndices
         //
@@ -218,15 +211,15 @@ void main()
         uint tileIdxFlattened = tileIdx.x + tileIdx.y * tileCounts.x;
         uint startOffset = MAX_LIGHTS_PER_TILE * tileIdxFlattened;
 
-        for(uint i = localIdxFlattened; i < lightIdxCounter && i < MAX_LIGHTS_PER_TILE; i += NUM_THREADS_PER_TILE)
-        {
+        for(uint i = localIdxFlattened; 
+            i < lightIdxCounter && i < MAX_LIGHTS_PER_TILE; 
+            i += NUM_THREADS_PER_TILE) {
             // per-tile list of light indices
             outLightIndices[startOffset + i] = lightIdx[i];
         }
 
         // add a sentinel if necessary (fewer than max lights)
-        if( localIdxFlattened == 0 && lightIdxCounter < MAX_LIGHTS_PER_TILE)
-        {
+        if( localIdxFlattened == 0 && lightIdxCounter < MAX_LIGHTS_PER_TILE) {
             // mark the end of each per-tile list with a sentinel
             outLightIndices[startOffset + lightIdxCounter] = -1.0;
         }
