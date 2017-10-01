@@ -673,6 +673,7 @@ typedef struct bgfx_internal_data
 typedef struct bgfx_encoder_s bgfx_encoder_t;
 
 #include "bgfx.idl.h"
+BGFX_C_API uintptr_t bgfx_get_internal_texture_ptr(bgfx_texture_handle_t _handle);
 
 /**/
 typedef bgfx_interface_vtbl_t* (*PFN_BGFX_GET_INTERFACE)(uint32_t _version);
