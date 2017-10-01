@@ -1352,6 +1352,7 @@ BGFX_C_API bgfx_interface_vtbl_t* bgfx_get_interface(uint32_t _version)
 			bgfx_render_frame,
 			bgfx_set_platform_data,
 			bgfx_get_internal_data,
+			bgfx_get_internal_texture_ptr,
 			bgfx_override_internal_texture_ptr,
 			bgfx_override_internal_texture,
 			bgfx_set_marker,

@@ -2752,6 +2752,23 @@ BGFX_C_API void bgfx_set_platform_data(const bgfx_platform_data_t * _data);
 BGFX_C_API const bgfx_internal_data_t* bgfx_get_internal_data(void);
 
 /**
+ * Get internal, platform-specific, texture pointer for a texture.
+ *
+ * @attention It's expected you understand some bgfx internals before you
+ *   use this call.
+ *
+ * @param[in] _handle Texture handle.
+ *
+ * @returns Native API pointer to texture. If result is 0, texture is not created yet from the
+ *   main thread.
+ *
+ * @warning Must be called only on render thread.
+ *
+ * @attention C99 equivalent is `bgfx_get_internal_texture_ptr`.
+ */
+BGFX_C_API uintptr_t bgfx_get_internal_texture_ptr(bgfx_texture_handle_t _handle);
+
+/**
  * Override internal texture with externally created texture. Previously
  * created internal texture will released.
  * @attention It's expected you understand some bgfx internals before you
@@ -3560,6 +3577,7 @@ struct bgfx_interface_vtbl
     bgfx_render_frame_t (*render_frame)(int32_t _msecs);
     void (*set_platform_data)(const bgfx_platform_data_t * _data);
     const bgfx_internal_data_t* (*get_internal_data)(void);
+    uintptr_t (*get_internal_texture_ptr)(bgfx_texture_handle_t _handle);
     uintptr_t (*override_internal_texture_ptr)(bgfx_texture_handle_t _handle, uintptr_t _ptr);
     uintptr_t (*override_internal_texture)(bgfx_texture_handle_t _handle, uint16_t _width, uint16_t _height, uint8_t _numMips, bgfx_texture_format_t _format, uint64_t _flags);
     void (*set_marker)(const char* _marker);

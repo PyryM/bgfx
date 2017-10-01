@@ -349,6 +349,13 @@ namespace bgfx
 		return &g_internalData;
 	}
 
+	uintptr_t getInternal(TextureHandle _handle)
+	{
+		BGFX_CHECK_RENDER_THREAD();
+		RendererContextI* rci = s_ctx->m_renderCtx;
+		return rci->getInternal(_handle);
+	}
+
 	uintptr_t overrideInternal(TextureHandle _handle, uintptr_t _ptr)
 	{
 		BGFX_CHECK_RENDER_THREAD();
@@ -5331,3 +5338,9 @@ namespace bgfx
 } // namespace bgfx
 
 #include "bgfx.idl.inl"
+
+BGFX_C_API uintptr_t bgfx_get_internal_texture_ptr(bgfx_texture_handle_t _handle)
+{
+	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } handle = { _handle };
+	return bgfx::getInternal(handle.cpp);
+}
