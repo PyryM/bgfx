@@ -2189,6 +2189,14 @@ VK_IMPORT_DEVICE
 
 			errorState = ErrorState::CommandQueueCreated;
 
+			if (g_platformData.nwh == NULL && g_platformData.ndt == NULL)
+			{
+				BX_TRACE("Init: platform data is NULL, no swapchain or backbuffers will be created");
+				m_headless = true;
+				m_swapchain = VK_NULL_HANDLE;
+				goto skip_swapchain;
+			}
+
 			result = createSurface(_init.resolution);
 
 			if (VK_SUCCESS != result)
@@ -2198,6 +2206,8 @@ VK_IMPORT_DEVICE
 			}
 
 			errorState = ErrorState::SurfaceCreated;
+
+			m_headless = false;
 
 			{
 				m_resolution       = _init.resolution;
@@ -2437,6 +2447,8 @@ VK_IMPORT_DEVICE
 
 			errorState = ErrorState::FrameBufferCreated;
 
+		skip_swapchain:
+
 			{
 				VkDescriptorPoolSize dps[] =
 				{
@@ -2643,12 +2655,14 @@ VK_IMPORT_DEVICE
 				vkDestroy(m_renderDoneSemaphore[ii]);
 			}
 
-			releaseSwapchainFramebuffer();
-			releaseSwapchain();
+			if (!m_headless) {
+				releaseSwapchainFramebuffer();
+				releaseSwapchain();
 
-			vkDestroySurfaceKHR(m_instance, m_surface, m_allocatorCb);
+				vkDestroySurfaceKHR(m_instance, m_surface, m_allocatorCb);
 
-			vkDestroy(m_renderPass);
+				vkDestroy(m_renderPass);
+			}
 
 			m_cmd.shutdown();
 
@@ -4692,6 +4706,12 @@ VK_IMPORT_DEVICE
 
 		bool acquireImage()
 		{
+			if (m_headless)
+			{
+				BX_TRACE("WE SHOULD NOT BE IN THIS SITUATION!");
+				return true;
+			}
+
 			if (VK_NULL_HANDLE == m_swapchain
 			||  m_needToRefreshSwapchain)
 			{
@@ -4752,32 +4772,38 @@ VK_IMPORT_DEVICE
 
 		void kick(bool _wait = false)
 		{
-			const bool acquired = VK_NULL_HANDLE != m_lastImageAcquiredSemaphore;
-			const VkSemaphore waitSemaphore   = m_lastImageAcquiredSemaphore;
-			const VkSemaphore signalSemaphore = acquired
-				? m_lastImageRenderedSemaphore
-				: VkSemaphore(VK_NULL_HANDLE)
-				;
+			if (!m_headless) {
+				const bool acquired = VK_NULL_HANDLE != m_lastImageAcquiredSemaphore;
+				const VkSemaphore waitSemaphore = m_lastImageAcquiredSemaphore;
+				const VkSemaphore signalSemaphore = acquired
+					? m_lastImageRenderedSemaphore
+					: VkSemaphore(VK_NULL_HANDLE)
+					;
 
-			m_lastImageAcquiredSemaphore = VK_NULL_HANDLE;
+				m_lastImageAcquiredSemaphore = VK_NULL_HANDLE;
 
-			if (acquired)
-			{
-				setImageMemoryBarrier(
-					  m_commandBuffer
-					, m_backBufferColorImage[m_backBufferColorIdx]
-					, VK_IMAGE_ASPECT_COLOR_BIT
-					, m_backBufferColorImageLayout[m_backBufferColorIdx]
-					, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+				if (acquired)
+				{
+					setImageMemoryBarrier(
+						m_commandBuffer
+						, m_backBufferColorImage[m_backBufferColorIdx]
+						, VK_IMAGE_ASPECT_COLOR_BIT
+						, m_backBufferColorImageLayout[m_backBufferColorIdx]
+						, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 					);
-				m_backBufferColorImageLayout[m_backBufferColorIdx] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+					m_backBufferColorImageLayout[m_backBufferColorIdx] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+				}
+
+				m_cmd.kick(waitSemaphore, signalSemaphore, _wait);
+
+				if (acquired)
+				{
+					m_backBufferColorFence[m_backBufferColorIdx] = m_cmd.m_kickedFence;
+				}
 			}
-
-			m_cmd.kick(waitSemaphore, signalSemaphore, _wait);
-
-			if (acquired)
+			else
 			{
-				m_backBufferColorFence[m_backBufferColorIdx] = m_cmd.m_kickedFence;
+				m_cmd.kick(VK_NULL_HANDLE, VK_NULL_HANDLE, _wait);
 			}
 
 			VK_CHECK(m_cmd.alloc(&m_commandBuffer) );
@@ -4915,6 +4941,8 @@ VK_IMPORT_DEVICE
 		bool               m_needPresent;
 		bool               m_needToRefreshSwapchain;
 		bool               m_needToRecreateSurface;
+
+		bool               m_headless;
 
 		VkFormat           m_backBufferDepthStencilFormat;
 		VkDeviceMemory     m_backBufferDepthStencilMemory;
@@ -6996,12 +7024,12 @@ VK_DESTROY
 			}
 		}
 
-		if (updateResolution(_render->m_resolution, needAcquire) )
+		if (!m_headless && updateResolution(_render->m_resolution, needAcquire) )
 		{
 			return;
 		}
 
-		if (needAcquire)
+		if (!m_headless && needAcquire)
 		{
 			if (!acquireImage() )
 			{
