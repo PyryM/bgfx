@@ -2189,11 +2189,29 @@ VK_IMPORT_DEVICE
 
 			errorState = ErrorState::CommandQueueCreated;
 
+			for (uint32_t ii = 0; ii < BX_COUNTOF(m_backBufferColorImageView); ++ii)
+			{
+				m_backBufferColorImageView[ii] = VK_NULL_HANDLE;
+				m_backBufferColorImage[ii] = VK_NULL_HANDLE;
+				m_backBufferColor[ii] = VK_NULL_HANDLE;
+				m_backBufferColorFence[ii] = VK_NULL_HANDLE;
+			}
+
+			for (uint32_t ii = 0; ii < BX_COUNTOF(m_presentDoneSemaphore); ++ii)
+			{
+				m_presentDoneSemaphore[ii] = VK_NULL_HANDLE;
+				m_renderDoneSemaphore[ii] = VK_NULL_HANDLE;
+			}
+
+			m_lastImageRenderedSemaphore = VK_NULL_HANDLE;
+			m_lastImageAcquiredSemaphore = VK_NULL_HANDLE;
+
+			m_swapchain = VK_NULL_HANDLE;
+
 			if (g_platformData.nwh == NULL && g_platformData.ndt == NULL)
 			{
 				BX_TRACE("Init: platform data is NULL, no swapchain or backbuffers will be created");
 				m_headless = true;
-				m_swapchain = VK_NULL_HANDLE;
 				goto skip_swapchain;
 			}
 
@@ -2378,23 +2396,6 @@ VK_IMPORT_DEVICE
 				m_sci.compositeAlpha = compositeAlpha;
 				m_sci.clipped        = VK_FALSE;
 				m_sci.oldSwapchain   = VK_NULL_HANDLE;
-
-				for (uint32_t ii = 0; ii < BX_COUNTOF(m_backBufferColorImageView); ++ii)
-				{
-					m_backBufferColorImageView[ii] = VK_NULL_HANDLE;
-					m_backBufferColorImage[ii]     = VK_NULL_HANDLE;
-					m_backBufferColor[ii]          = VK_NULL_HANDLE;
-					m_backBufferColorFence[ii]     = VK_NULL_HANDLE;
-				}
-
-				for (uint32_t ii = 0; ii < BX_COUNTOF(m_presentDoneSemaphore); ++ii)
-				{
-					m_presentDoneSemaphore[ii] = VK_NULL_HANDLE;
-					m_renderDoneSemaphore[ii] = VK_NULL_HANDLE;
-				}
-
-				m_lastImageRenderedSemaphore = VK_NULL_HANDLE;
-				m_lastImageAcquiredSemaphore = VK_NULL_HANDLE;
 
 				result = createSwapchain(_init.resolution.reset);
 
