@@ -2196,6 +2196,7 @@ VK_IMPORT_DEVICE
 				m_backBufferColor[ii] = VK_NULL_HANDLE;
 				m_backBufferColorFence[ii] = VK_NULL_HANDLE;
 			}
+			m_backBufferColorIdx = 0;
 
 			for (uint32_t ii = 0; ii < BX_COUNTOF(m_presentDoneSemaphore); ++ii)
 			{
@@ -2538,6 +2539,7 @@ VK_IMPORT_DEVICE
 			}
 
 			g_internalData.context = m_device;
+			BX_TRACE("Vulkan init succeeded");
 			return true;
 
 		error:
