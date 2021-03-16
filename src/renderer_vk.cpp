@@ -7885,7 +7885,7 @@ BX_UNUSED(presentMin, presentMax);
 		perfStats.gpuMemoryMax  = gpuMemoryAvailable;
 		perfStats.gpuMemoryUsed = gpuMemoryUsed;
 
-		if (_render->m_debug & (BGFX_DEBUG_IFH|BGFX_DEBUG_STATS) )
+		if (!m_headless && (_render->m_debug & (BGFX_DEBUG_IFH|BGFX_DEBUG_STATS)))
 		{
 			BGFX_VK_PROFILER_BEGIN_LITERAL("debugstats", kColorFrame);
 
@@ -8018,7 +8018,7 @@ BX_UNUSED(presentMin, presentMax);
 
 			BGFX_VK_PROFILER_END();
 		}
-		else if (_render->m_debug & BGFX_DEBUG_TEXT)
+		else if (!m_headless && (_render->m_debug & BGFX_DEBUG_TEXT))
 		{
 			BGFX_VK_PROFILER_BEGIN_LITERAL("debugtext", kColorFrame);
 
