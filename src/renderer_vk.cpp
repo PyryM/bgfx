@@ -4,7 +4,6 @@
  */
 
 #include "bgfx_p.h"
-#include <iostream>
 
 #if BGFX_CONFIG_RENDERER_VULKAN
 #	include "renderer_vk.h"
@@ -1483,7 +1482,6 @@ VK_IMPORT_DEVICE
 
 		bool init(const Init& _init)
 		{
-			std::cout << "init start!" << std::endl;
 			BX_UNUSED(s_checkMsaa, s_textureAddress);
 
 			struct ErrorState
@@ -1525,7 +1523,6 @@ VK_IMPORT_DEVICE
 				m_renderDocDll = loadRenderDoc();
 			}
 
-			std::cout << "dlopen!" << std::endl;
 			m_vulkan1Dll = bx::dlopen(
 #if BX_PLATFORM_WINDOWS
 				"vulkan-1.dll"
@@ -1537,8 +1534,6 @@ VK_IMPORT_DEVICE
 				"libvulkan.so.1"
 #endif // BX_PLATFORM_*
 					);
-
-			std::cout << "dlopen didn't crash!" << std::endl;
 
 			if (NULL == m_vulkan1Dll)
 			{
@@ -1564,8 +1559,6 @@ VK_IMPORT
 				BX_TRACE("Init error: Failed to load shared library functions.");
 				goto error;
 			}
-
-			std::cout << "extensions!" << std::endl;
 
 			{
 				dumpExtensions(VK_NULL_HANDLE, s_extension);
@@ -1668,15 +1661,11 @@ VK_IMPORT
 					BX_UNUSED(s_allocationCb);
 				}
 
-				std::cout << "create instance!" << std::endl;
-
 				result = vkCreateInstance(
 					  &ici
 					, m_allocatorCb
 					, &m_instance
 					);
-
-				std::cout << "instance didn't crash!" << std::endl;
 
 				if (VK_SUCCESS != result)
 				{
@@ -2551,11 +2540,9 @@ VK_IMPORT_DEVICE
 
 			g_internalData.context = m_device;
 			BX_TRACE("Vulkan init succeeded");
-			std::cout << "init succeeded!" << std::endl;
 			return true;
 
 		error:
-			std::cout << "init error! " << errorState << std::endl;
 			BX_TRACE("errorState %d", errorState);
 			switch (errorState)
 			{
