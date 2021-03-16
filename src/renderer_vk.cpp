@@ -2213,6 +2213,9 @@ VK_IMPORT_DEVICE
 			{
 				BX_TRACE("Init: platform data is NULL, no swapchain or backbuffers will be created");
 				m_headless = true;
+				m_needPresent = false;
+				m_needToRefreshSwapchain = false;
+				m_needToRecreateSurface = false;
 				goto skip_swapchain;
 			}
 
