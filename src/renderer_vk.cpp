@@ -1569,14 +1569,12 @@ VK_IMPORT
 
 			{
 				dumpExtensions(VK_NULL_HANDLE, s_extension);
-				std::cout << "ext dump!" << std::endl;
 
 				uint32_t numEnabledLayers = 0;
 
 				const char* enabledLayer[Layer::Count];
 
 				BX_TRACE("Enabled instance layers:");
-				std::cout << "layer stuff!" << std::endl;
 
 				for (uint32_t ii = 0; ii < Layer::Count; ++ii)
 				{
@@ -1587,7 +1585,6 @@ VK_IMPORT
 					{
 						enabledLayer[numEnabledLayers++] = layer.m_name;
 						BX_TRACE("\t%s", layer.m_name);
-						std::cout << "enabled layer! " << layer.m_name << std::endl;
 					}
 				}
 
@@ -1629,7 +1626,6 @@ VK_IMPORT
 
 				if (NULL != vkEnumerateInstanceVersion)
 				{
-					std::cout << "enumerate instance version!" << std::endl;
 					result = vkEnumerateInstanceVersion(&vulkanApiVersionSelector);
 
 					if (VK_SUCCESS != result)
@@ -1646,8 +1642,6 @@ VK_IMPORT
 				{
 					vulkanApiVersionSelector = VK_API_VERSION_1_0;
 				}
-
-				std::cout << "fill in some info!" << std::endl;
 
 				VkApplicationInfo appInfo;
 				appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
